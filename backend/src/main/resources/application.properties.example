@@ -1,0 +1,18 @@
+# Example configuration file - copy to application.properties and update with your values
+
+# Database Configuration (Supabase)
+spring.datasource.url=jdbc:postgresql://db.your-project.supabase.co:5432/postgres
+spring.datasource.username=postgres
+spring.datasource.password=your-supabase-password
+
+# Groq AI Configuration
+groq.api.key=your-groq-api-key-here
+
+# LaTeX Service Configuration  
+latex.service.url=http://latex-service:8080
+
+# CORS Configuration (adjust for your frontend URL)
+cors.allowed-origins=http://localhost:3000,https://your-domain.com
+
+# Environment-specific settings
+spring.profiles.active=development

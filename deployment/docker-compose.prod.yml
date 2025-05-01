@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: cvitae-postgres-prod
+    environment:
+      POSTGRES_DB: ${DB_NAME:-cvitae}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cvitae-network
+    restart: unless-stopped
+
+  # Backend Service
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.prod
+    container_name: cvitae-backend-prod
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-cvitae}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - LATEX_SERVICE_URL=http://latex-service:8080
+    depends_on:
+      - postgres
+      - latex-service
+    networks:
+      - cvitae-network
+    restart: unless-stopped
+    volumes:
+      - backend_logs:/app/logs
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - VITE_API_URL=${API_URL:-/api}
+    container_name: cvitae-frontend-prod
+    networks:
+      - cvitae-network
+    restart: unless-stopped
+
+  # LaTeX Service
+  latex-service:
+    build:
+      context: ../latex-service
+      dockerfile: Dockerfile
+    container_name: cvitae-latex-prod
+    networks:
+      - cvitae-network
+    restart: unless-stopped
+    volumes:
+      - latex_temp:/tmp
+
+  # NGINX Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: cvitae-nginx-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - cvitae-network
+    restart: unless-stopped
+
+networks:
+  cvitae-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  backend_logs:
+  latex_temp:
+  nginx_logs:
