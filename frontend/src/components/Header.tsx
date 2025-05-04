@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles, Menu, X } from "lucide-react";
+import { ApiActivityIndicator } from "./ApiActivityIndicator";
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -34,21 +35,25 @@ const Header: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                to={item.path}
-                className="text-gray-700 hover:text-black transition-colors duration-200 font-medium relative group"
-              >
-                {item.name}
-                <motion.div
-                  className="absolute bottom-0 left-0 w-0 h-0.5 bg-black group-hover:w-full transition-all duration-300"
-                  whileHover={{ width: "100%" }}
-                />
-              </Link>
-            ))}
-          </nav>
+          <div className="hidden md:flex items-center space-x-6">
+            <nav className="flex items-center space-x-8">
+              {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.path}
+                  className="text-gray-700 hover:text-black transition-colors duration-200 font-medium relative group"
+                >
+                  {item.name}
+                  <motion.div
+                    className="absolute bottom-0 left-0 w-0 h-0.5 bg-black group-hover:w-full transition-all duration-300"
+                    whileHover={{ width: "100%" }}
+                  />
+                </Link>
+              ))}
+            </nav>
+
+            <ApiActivityIndicator showDetails={true} />
+          </div>
 
           {/* CTA Button */}
           <motion.div

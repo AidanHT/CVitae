@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, X, Send, Bot } from "lucide-react";
+import { ChatApiService, ChatMessageRequest } from "../services/chatApi";
 
 interface ChatMessage {
   id: string;
@@ -34,20 +35,49 @@ const ChatBot: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const userInput = inputValue;
     setInputValue("");
     setIsTyping(true);
 
-    // Simulate AI response (in production, this would call your backend API)
-    setTimeout(() => {
+    try {
+      const request: ChatMessageRequest = {
+        message: userInput,
+        sessionId: `chat-${Date.now()}`,
+        context: "resume_optimization",
+        currentResumeContent: "", // In production, get from context
+        jobPostingContent: "", // In production, get from context
+        userId: "user-123",
+      };
+
+      const response = await ChatApiService.sendMessage(request);
+
+      let botResponseContent;
+      if (response.success && response.data) {
+        botResponseContent = response.data.response;
+      } else {
+        throw new Error(response.error || "Failed to get AI response");
+      }
+
       const botResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        content: generateBotResponse(inputValue),
+        content: botResponseContent,
         isBot: true,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botResponse]);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Fall back to generated response
+      const botResponse: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        content: generateBotResponse(userInput),
+        isBot: true,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, botResponse]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const generateBotResponse = (userInput: string): string => {

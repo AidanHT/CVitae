@@ -1,0 +1,64 @@
+---
+alwaysApply: true
+---
+
+CVitae is a full-stack AI-powered resume optimization platform that transforms master resumes into targeted, ATS-optimized resumes using Groq AI and Jake's LaTeX formatting. The application features a minimalist black & white design with smooth animations and integrated AI assistance.
+
+Technology Stack & Architecture
+Backend (Java Spring Boot)
+Main Application: CVitaeApplication.java
+Controllers:
+ResumeController.java - Resume generation, job analysis, file uploads
+ChatController.java - AI chatbot interactions and suggestions
+ExportController.java - PDF/PNG/JPG export functionality
+Services:
+GroqAIServiceImpl.java - Groq AI integration for resume optimization
+ResumeServiceImpl.java - Core resume processing logic
+ExportServiceImpl.java - Multi-format export handling
+ChatServiceImpl.java - AI conversation management
+Data Models:
+Resume.java - Resume entity with JPA
+entity/ChatMessage.java - Chat history persistence
+dto/ folder - 12 DTOs for API requests/responses
+Frontend (React TypeScript)
+Main App: App.tsx - Route configuration with Framer Motion
+Pages:
+HomePage.tsx - Hero section with features and call-to-action
+ResumeBuilderPage.tsx - 4-step wizard (upload, job details, settings, generation)
+ExportPage.tsx - Multi-format download interface
+AboutPage.tsx - Company information and technology showcase
+Components:
+ChatBot.tsx - AI assistant with conversation interface
+Layout.tsx - Main layout with header and navigation
+Header.tsx & Footer.tsx - Site structure components
+LaTeX Service (Python Flask)
+Core Service: app.py - LaTeX compilation microservice
+Features: PDF generation, image conversion, Jake's template formatting
+Deployment & Infrastructure
+Docker Configuration: docker-compose.dev.yml - Multi-service orchestration
+Services: PostgreSQL database, backend API, frontend UI, LaTeX compiler
+Production Setup: docker-compose.prod.yml with NGINX reverse proxy
+Key Features & Functionality
+Core Resume Processing
+AI Analysis: Job posting keyword extraction and ATS optimization
+Smart Tailoring: Master resume content adaptation to job requirements
+Multi-format Export: PDF, PNG, JPG, and raw LaTeX code downloads
+File Upload Support: PDF, DOCX, and text file processing
+User Interface
+Progressive Web Design: 4-step resume builder workflow
+Real-time Chat: AI assistant for resume improvement suggestions
+Drag & Drop: File upload with visual feedback
+Responsive Design: Tailwind CSS with mobile-first approach
+AI Integration
+Groq AI Service: LLaMA model integration for intelligent resume optimization
+Conversation Context: Persistent chat sessions for iterative improvements
+ATS Optimization: Keyword matching and formatting recommendations
+Database Schema
+Resumes Table: User data, job postings, generated content, LaTeX code
+Chat Messages: Conversation history and AI responses
+Supabase Integration: PostgreSQL with real-time capabilities
+Development & Testing
+Comprehensive Testing: TESTING.md - Full testing checklist for all endpoints
+Docker Development: docker-compose.dev.yml - Local development environment
+Production Ready: Complete CI/CD pipeline with debugging documentation
+This codebase represents a production-ready, enterprise-grade AI resume application with full-stack TypeScript/Java implementation, containerized deployment, and comprehensive testing coverage.

@@ -2,12 +2,18 @@ package com.cvitae.dto;
 
 import lombok.Data;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.List;
 import java.util.Map;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class JobAnalysisResponse {
     
     private String jobTitle;

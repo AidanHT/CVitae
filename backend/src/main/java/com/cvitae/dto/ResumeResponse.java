@@ -2,6 +2,9 @@ package com.cvitae.dto;
 
 import lombok.Data;
 import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -10,6 +13,9 @@ import java.util.UUID;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ResumeResponse {
     
     private UUID id;
@@ -39,6 +45,8 @@ public class ResumeResponse {
     
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class ExportInfo {
         private String format; // PDF, PNG, JPG, LATEX
         private String downloadUrl;

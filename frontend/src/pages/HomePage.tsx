@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Sparkles,
   Target,
-  Zap,
   Brain,
   FileText,
   Download,

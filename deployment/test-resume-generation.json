@@ -1,0 +1,14 @@
+{
+  "masterResume": "John Doe\nSoftware Developer\n\nEXPERIENCE:\n- Software Developer at ABC Corp (2021-2023)\n- Built REST APIs using Spring Boot\n- Worked with PostgreSQL databases\n- Collaborated with frontend team using React\n\nSKILLS:\n- Java, Spring Boot, REST APIs\n- PostgreSQL, MySQL\n- Git, Docker\n- React, JavaScript",
+  "jobPosting": "Software Engineer position requiring Java and Spring Boot experience. Must have 3+ years of experience with REST APIs and database design. Experience with React is a plus.",
+  "jobTitle": "Software Engineer",
+  "companyName": "Tech Corp",
+  "targetLength": 1,
+  "includeExperience": true,
+  "includeEducation": true,
+  "includeProjects": true,
+  "includeSkills": true,
+  "includeLeadership": true,
+  "userId": "test-user",
+  "sessionId": "test-session-123"
+}

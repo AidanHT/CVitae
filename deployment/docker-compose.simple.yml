@@ -4,7 +4,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15
-    container_name: cvitae-postgres
+    container_name: CVitae-postgres
     environment:
       POSTGRES_DB: cvitae
       POSTGRES_USER: postgres
@@ -21,24 +21,60 @@ services:
       timeout: 10s
       retries: 5
 
-  # Frontend Service (using local npm dev server)
+  # Backend Service
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: CVitae-backend
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/cvitae
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=password
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - LATEX_SERVICE_URL=http://latex-service:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - latex-service
+    networks:
+      - cvitae-network
+    volumes:
+      - backend_logs:/app/logs
+
+  # Frontend Service
   frontend:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    container_name: cvitae-frontend
+    container_name: CVitae-frontend
     environment:
       - VITE_API_URL=http://localhost:8080/api
     ports:
       - "3000:3000"
     networks:
       - cvitae-network
+    depends_on:
+      - backend
+
+  # LaTeX Service
+  latex-service:
+    build:
+      context: ../latex-service
+      dockerfile: Dockerfile.minimal
+    container_name: CVitae-latex
+    ports:
+      - "8082:8080"
+    networks:
+      - cvitae-network
     volumes:
-      - ../frontend:/app
-      - /app/node_modules
+      - latex_temp:/tmp
 
 volumes:
   postgres_data:
+  backend_logs:
+  latex_temp:
 
 networks:
   cvitae-network:

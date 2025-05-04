@@ -1,5 +1,7 @@
 package com.cvitae.service.impl;
 
+import com.cvitae.ai.ResumeTailorService;
+import com.cvitae.ai.ResumeTailoringResult;
 import com.cvitae.dto.*;
 import com.cvitae.entity.Resume;
 import com.cvitae.repository.ResumeRepository;
@@ -9,11 +11,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.Loader;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -25,6 +29,7 @@ public class ResumeServiceImpl implements ResumeService {
 
     private final ResumeRepository resumeRepository;
     private final GroqAIService groqAIService;
+    private final ResumeTailorService resumeTailorService;
 
     @Override
     public JobAnalysisResponse analyzeJobPosting(AnalyzeJobRequest request) {
@@ -47,32 +52,26 @@ public class ResumeServiceImpl implements ResumeService {
         log.info("Generating tailored resume for: {}", request.getJobTitle());
         
         try {
-            // 1. Analyze the job posting
-            JobAnalysisResponse jobAnalysis = groqAIService.analyzeJobPosting(
-                request.getJobPosting(),
-                request.getJobTitle(),
-                request.getCompanyName()
-            );
-
-            // 2. Generate tailored resume content
-            String tailoredContent = groqAIService.generateTailoredResume(
+            // Use the new AI orchestration service for complete workflow
+            ResumeTailoringResult tailoringResult = resumeTailorService.tailorResume(
                 request.getMasterResume(),
-                jobAnalysis,
+                request.getJobPosting(),
                 request
             );
+            
+            if (!tailoringResult.isSuccess()) {
+                throw new RuntimeException("Resume tailoring failed: " + tailoringResult.getErrorMessage());
+            }
 
-            // 3. Convert to Jake's LaTeX format
-            String latexCode = groqAIService.convertToJakesLatex(tailoredContent, request);
-
-            // 4. Save to database
+            // Save to database
             Resume resume = Resume.builder()
                 .id(UUID.randomUUID())
                 .masterResume(request.getMasterResume())
                 .jobPosting(request.getJobPosting())
                 .jobTitle(request.getJobTitle())
                 .companyName(request.getCompanyName())
-                .tailoredResume(tailoredContent)
-                .latexCode(latexCode)
+                .tailoredResume(tailoringResult.getTailoredContent())
+                .latexCode(tailoringResult.getLatexCode())
                 .targetLength(request.getTargetLength())
                 .userId(request.getUserId())
                 .sessionId(request.getSessionId())
@@ -83,19 +82,19 @@ public class ResumeServiceImpl implements ResumeService {
 
             resume = resumeRepository.save(resume);
 
-            // 5. Build response
+            // Build response with enhanced analytics
             return ResumeResponse.builder()
                 .id(resume.getId())
-                .tailoredResume(tailoredContent)
-                .latexCode(latexCode)
+                .tailoredResume(tailoringResult.getTailoredContent())
+                .latexCode(tailoringResult.getLatexCode())
                 .jobTitle(request.getJobTitle())
                 .companyName(request.getCompanyName())
                 .targetLength(request.getTargetLength())
                 .status("COMPLETED")
                 .createdAt(resume.getCreatedAt())
                 .updatedAt(resume.getUpdatedAt())
-                .jobAnalysis(jobAnalysis)
-                .atsCompatibilityScore(calculateATSScore(tailoredContent, jobAnalysis))
+                .jobAnalysis(tailoringResult.getJobAnalysis())
+                .atsCompatibilityScore(tailoringResult.getAtsCompatibilityScore())
                 .availableExports(getAvailableExports(resume.getId()))
                 .build();
 
@@ -171,7 +170,7 @@ public class ResumeServiceImpl implements ResumeService {
             return switch (extension) {
                 case ".pdf" -> extractTextFromPdf(file);
                 case ".docx" -> extractTextFromDocx(file);
-                case ".txt" -> new String(file.getBytes());
+                case ".txt" -> extractTextFromTxt(file);
                 default -> throw new RuntimeException("Unsupported file format: " + extension);
             };
 
@@ -182,17 +181,69 @@ public class ResumeServiceImpl implements ResumeService {
     }
 
     private String extractTextFromPdf(MultipartFile file) throws IOException {
-        try (PDDocument document = PDDocument.load(file.getInputStream())) {
+        try (PDDocument document = Loader.loadPDF(file.getBytes())) {
             PDFTextStripper stripper = new PDFTextStripper();
-            return stripper.getText(document);
+            stripper.setSortByPosition(true); // Better text ordering
+            String text = stripper.getText(document);
+            return cleanText(text);
         }
     }
 
     private String extractTextFromDocx(MultipartFile file) throws IOException {
         try (XWPFDocument document = new XWPFDocument(file.getInputStream());
              XWPFWordExtractor extractor = new XWPFWordExtractor(document)) {
-            return extractor.getText();
+            String text = extractor.getText();
+            // Clean up common encoding issues and normalize line breaks
+            return text.replaceAll("\\r\\n", "\n")
+                      .replaceAll("\\r", "\n")
+                      .replaceAll("\\u00A0", " ") // Non-breaking space
+                      .replaceAll("\\u2019", "'") // Right single quotation mark
+                      .replaceAll("\\u201C", "\"") // Left double quotation mark
+                      .replaceAll("\\u201D", "\"") // Right double quotation mark
+                      .replaceAll("\\u2013", "-") // En dash
+                      .replaceAll("\\u2014", "--") // Em dash
+                      .replaceAll("\\u2022", "•") // Bullet point
+                      .trim();
         }
+    }
+
+    private String extractTextFromTxt(MultipartFile file) throws IOException {
+        byte[] bytes = file.getBytes();
+        
+        // Try to detect encoding and read with proper charset
+        try {
+            // First try UTF-8
+            String text = new String(bytes, "UTF-8");
+            // Check if it contains replacement characters (invalid UTF-8)
+            if (!text.contains("\uFFFD")) {
+                return cleanText(text);
+            }
+        } catch (Exception e) {
+            log.debug("UTF-8 decoding failed, trying other encodings");
+        }
+        
+        // Try Windows-1252 (common for Windows documents)
+        try {
+            String text = new String(bytes, "Windows-1252");
+            return cleanText(text);
+        } catch (Exception e) {
+            log.debug("Windows-1252 decoding failed, trying ISO-8859-1");
+        }
+        
+        // Fallback to ISO-8859-1 (never fails)
+        String text = new String(bytes, "ISO-8859-1");
+        return cleanText(text);
+    }
+    
+    private String cleanText(String text) {
+        // Normalize line breaks and clean up common issues
+        return text.replaceAll("\\r\\n", "\n")
+                  .replaceAll("\\r", "\n")
+                  .replaceAll("\\u00A0", " ") // Non-breaking space
+                  .replaceAll("\\t", "    ") // Replace tabs with spaces
+                  .replaceAll("[ \\t]+$", "") // Remove trailing whitespace
+                  .replaceAll("\\n{3,}", "\n\n") // Limit consecutive newlines
+                  .trim();
     }
 
     private ResumeResponse mapToResponse(Resume resume) {

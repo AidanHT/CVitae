@@ -4,7 +4,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15
-    container_name: cvitae-postgres-prod
+    container_name: CVitae-postgres-prod
     environment:
       POSTGRES_DB: ${DB_NAME:-cvitae}
       POSTGRES_USER: ${DB_USER:-postgres}
@@ -20,7 +20,7 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile.prod
-    container_name: cvitae-backend-prod
+    container_name: CVitae-backend-prod
     environment:
       - SPRING_PROFILES_ACTIVE=production
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-cvitae}
@@ -44,7 +44,7 @@ services:
       dockerfile: Dockerfile.prod
       args:
         - VITE_API_URL=${API_URL:-/api}
-    container_name: cvitae-frontend-prod
+    container_name: CVitae-frontend-prod
     networks:
       - cvitae-network
     restart: unless-stopped
@@ -53,8 +53,8 @@ services:
   latex-service:
     build:
       context: ../latex-service
-      dockerfile: Dockerfile
-    container_name: cvitae-latex-prod
+      dockerfile: Dockerfile.minimal
+    container_name: CVitae-latex-prod
     networks:
       - cvitae-network
     restart: unless-stopped
@@ -64,7 +64,7 @@ services:
   # NGINX Reverse Proxy
   nginx:
     image: nginx:alpine
-    container_name: cvitae-nginx-prod
+    container_name: CVitae-nginx-prod
     ports:
       - "80:80"
       - "443:443"
