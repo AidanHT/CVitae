@@ -62,7 +62,7 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         log.warn("Validation error [TraceID: {}]: {}", traceId, ex.getMessage());
         
-        Map<String, String> fieldErrors = new HashMap<>();
+        Map<String, Object> fieldErrors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();

@@ -12,7 +12,6 @@ import java.util.Map;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@Builder
 public class CVitaeException extends RuntimeException {
     private final HttpStatus status;
     private final String error;

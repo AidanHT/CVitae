@@ -23,13 +23,11 @@ services:
       context: ../backend
       dockerfile: Dockerfile
     container_name: CVitae-backend
-    env_file:
-      - ../.env
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/cvitae
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=password
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_API_KEY=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
       - LATEX_SERVICE_URL=http://latex-service:8080
     ports:
       - "8080:8080"

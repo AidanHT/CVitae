@@ -18,7 +18,8 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        log.info("Configuring CORS for profile: {}", activeProfile);
+        log.info("🔍 CORS CONFIG - Active profile: [{}]", activeProfile);
+        log.info("🔍 CORS CONFIG - Checking if development: [{}]", "development".equals(activeProfile));
         
         if ("development".equals(activeProfile)) {
             // Development: Allow all origins for easier local development
@@ -27,10 +28,10 @@ public class CorsConfig implements WebMvcConfigurer {
                     .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                     .allowedHeaders("*")
                     .exposedHeaders("X-Trace-ID", "Content-Disposition")
-                    .allowCredentials(true)
+                    .allowCredentials(false)  // Temporarily disable credentials for testing
                     .maxAge(3600);
                     
-            log.info("✅ CORS configured for development - allowing all origins");
+            log.info("✅ CORS configured for development - allowing all origins, credentials=false");
         } else {
             // Production: Use specific allowed origins
             String[] origins = allowedOrigins.split(",");

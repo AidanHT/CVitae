@@ -270,7 +270,7 @@ public class EnhancedGroqAIService implements GroqAIService {
         return JobAnalysisResponse.builder()
                 .jobTitle(jobTitle)
                 .companyName(companyName)
-                .analysisNotes("Mock analysis for " + jobTitle + " at " + companyName)
+                .resumeOptimizationTips(List.of("Mock analysis for " + jobTitle + " at " + companyName))
                 .build();
     }
 

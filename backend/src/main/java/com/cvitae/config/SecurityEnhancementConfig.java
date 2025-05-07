@@ -12,8 +12,8 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 /**
  * Enhanced security configuration with proper headers and policies
  */
-@Configuration
-@EnableWebSecurity
+//@Configuration
+//@EnableWebSecurity
 @Slf4j
 public class SecurityEnhancementConfig {
 
@@ -52,7 +52,7 @@ public class SecurityEnhancementConfig {
                 .contentTypeOptions().and()
                 .httpStrictTransportSecurity(hstsConfig -> hstsConfig
                     .maxAgeInSeconds(31536000)
-                    .includeSubdomains(true)
+                    .includeSubDomains(true)
                 )
                 .referrerPolicy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)
             );

@@ -13,7 +13,7 @@ import java.util.UUID;
 /**
  * Filter for logging all HTTP requests and responses with trace IDs
  */
-@Component
+
 @Slf4j
 public class RequestResponseLoggingFilter implements Filter {
 
