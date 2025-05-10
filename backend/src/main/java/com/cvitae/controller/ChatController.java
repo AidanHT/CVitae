@@ -17,7 +17,7 @@ import java.util.List;
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
+// CORS handled globally in CorsConfig.java
 public class ChatController {
 
     private final ChatService chatService;

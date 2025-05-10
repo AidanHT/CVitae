@@ -18,7 +18,7 @@ import java.util.UUID;
 @RequestMapping("/api/export")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
+// CORS handled globally in CorsConfig.java
 public class ExportController {
 
     private final ExportService exportService;

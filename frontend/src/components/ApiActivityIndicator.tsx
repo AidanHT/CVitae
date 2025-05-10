@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { checkApiHealth } from "../services/api";
@@ -27,6 +27,12 @@ export const ApiActivityIndicator: React.FC<ApiActivityIndicatorProps> = ({
   const [status, setStatus] = useState<ApiStatus>("connecting");
   const [activities, setActivities] = useState<ApiActivity[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
+  const counterRef = useRef(0);
+
+  const generateUniqueId = useCallback(() => {
+    counterRef.current += 1;
+    return `activity-${Date.now()}-${counterRef.current}`;
+  }, []);
 
   useEffect(() => {
     // Initial health check
@@ -68,7 +74,7 @@ export const ApiActivityIndicator: React.FC<ApiActivityIndicatorProps> = ({
       if (match) {
         const [, method, endpoint] = match;
         const activity: ApiActivity = {
-          id: Date.now().toString(),
+          id: generateUniqueId(),
           method,
           endpoint: endpoint.replace(/^.*\/api/, ""), // Remove base URL
           status: "pending",

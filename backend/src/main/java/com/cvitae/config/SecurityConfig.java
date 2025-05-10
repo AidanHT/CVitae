@@ -23,6 +23,21 @@ public class SecurityConfig {
         
         http
             .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(request -> {
+                var corsConfig = new org.springframework.web.cors.CorsConfiguration();
+                corsConfig.setAllowedOriginPatterns(java.util.List.of(
+                    "http://localhost:3000",
+                    "http://localhost:3001", 
+                    "http://localhost:5173",
+                    "http://localhost"
+                ));
+                corsConfig.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+                corsConfig.setAllowedHeaders(java.util.List.of("*"));
+                corsConfig.setExposedHeaders(java.util.List.of("X-Trace-ID", "Content-Disposition"));
+                corsConfig.setAllowCredentials(false);
+                corsConfig.setMaxAge(3600L);
+                return corsConfig;
+            }))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/api/**").permitAll()

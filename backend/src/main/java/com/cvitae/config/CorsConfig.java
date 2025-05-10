@@ -22,16 +22,21 @@ public class CorsConfig implements WebMvcConfigurer {
         log.info("🔍 CORS CONFIG - Checking if development: [{}]", "development".equals(activeProfile));
         
         if ("development".equals(activeProfile)) {
-            // Development: Allow all origins for easier local development
+            // Development: Allow common development origins
             registry.addMapping("/**")
-                    .allowedOriginPatterns("*")  // Use patterns for wildcards
+                    .allowedOrigins(
+                        "http://localhost:3000",    // Direct frontend access
+                        "http://localhost:3001",    // Alternative frontend port
+                        "http://localhost:5173",    // Vite default port
+                        "http://localhost"          // NGINX proxy
+                    )
                     .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                     .allowedHeaders("*")
                     .exposedHeaders("X-Trace-ID", "Content-Disposition")
-                    .allowCredentials(false)  // Temporarily disable credentials for testing
+                    .allowCredentials(false)  // Disable credentials to fix wildcard issue
                     .maxAge(3600);
                     
-            log.info("✅ CORS configured for development - allowing all origins, credentials=false");
+            log.info("✅ CORS configured for development - specific origins, credentials=false");
         } else {
             // Production: Use specific allowed origins
             String[] origins = allowedOrigins.split(",");

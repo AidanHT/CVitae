@@ -19,7 +19,7 @@ import java.util.UUID;
 @RequestMapping("/api/resumes")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*") // Configure properly for production
+// CORS handled globally in CorsConfig.java
 public class ResumeController {
 
     private final ResumeService resumeService;
