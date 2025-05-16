@@ -17,7 +17,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 @Slf4j
 public class SecurityEnhancementConfig {
 
-    @Bean
+    //@Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         log.info("Configuring enhanced security settings...");
         

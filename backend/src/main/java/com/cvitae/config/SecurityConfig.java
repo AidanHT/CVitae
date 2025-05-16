@@ -7,6 +7,10 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.Arrays;
 
 /**
  * Basic security configuration - kept for compatibility
@@ -23,21 +27,7 @@ public class SecurityConfig {
         
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(request -> {
-                var corsConfig = new org.springframework.web.cors.CorsConfiguration();
-                corsConfig.setAllowedOriginPatterns(java.util.List.of(
-                    "http://localhost:3000",
-                    "http://localhost:3001", 
-                    "http://localhost:5173",
-                    "http://localhost"
-                ));
-                corsConfig.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-                corsConfig.setAllowedHeaders(java.util.List.of("*"));
-                corsConfig.setExposedHeaders(java.util.List.of("X-Trace-ID", "Content-Disposition"));
-                corsConfig.setAllowCredentials(false);
-                corsConfig.setMaxAge(3600L);
-                return corsConfig;
-            }))
+            .cors(cors -> cors.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/api/**").permitAll()
@@ -47,7 +37,33 @@ public class SecurityConfig {
             )
             .headers(headers -> headers.frameOptions().disable());
 
-        log.info("✅ Basic security configuration applied");
+        log.info("✅ Basic security configuration applied with explicit CORS");
         return http.build();
+    }
+    
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        log.info("🔧 Configuring explicit CORS configuration source");
+        
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+            "http://localhost:3000",
+            "http://localhost:3001", 
+            "http://localhost:5173",
+            "http://localhost"
+        ));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("X-Trace-ID", "Content-Disposition"));
+        configuration.setAllowCredentials(false); // Critical: must be false for patterns
+        configuration.setMaxAge(3600L);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", configuration);
+        
+        log.info("✅ CORS configuration created: origins={}, credentials=false", 
+                configuration.getAllowedOriginPatterns());
+        
+        return source;
     }
 }
