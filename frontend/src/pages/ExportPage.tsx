@@ -1,23 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useParams } from "react-router-dom";
 import { Download, FileText, Image, Copy, CheckCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { ResumeApiService, ResumeResponse } from "../services/resumeApi";
+import { ExportApiService } from "../services/exportApi";
 
 const ExportPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [activeFormat, setActiveFormat] = useState("pdf");
   const [isExporting, setIsExporting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [latexCode, setLatexCode] = useState("");
+  const [resumeData, setResumeData] = useState<ResumeResponse | null>(null);
 
-  // Mock resume data
-  const resumeData = {
-    id: id,
-    jobTitle: "Senior Software Engineer",
-    companyName: "Google",
-    createdAt: new Date().toLocaleDateString(),
-    atsScore: 0.92,
-  };
+  // Fetch resume data on component mount
+  useEffect(() => {
+    const fetchResumeData = async () => {
+      if (!id) {
+        toast.error("Resume ID not found");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await ResumeApiService.getResume(id);
+        if (response.success && response.data) {
+          setResumeData(response.data);
+          setLatexCode(response.data.latexCode || "");
+        } else {
+          toast.error("Failed to load resume data");
+        }
+      } catch (error) {
+        console.error("Error fetching resume:", error);
+        toast.error("Failed to load resume data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchResumeData();
+  }, [id]);
 
   const exportFormats = [
     {
@@ -51,24 +74,71 @@ const ExportPage: React.FC = () => {
   ];
 
   const handleExport = async (format: string) => {
+    if (!id || !resumeData) {
+      toast.error("Resume data not available");
+      return;
+    }
+
     setIsExporting(true);
     try {
-      // Simulate export API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      toast.success(`Resume exported as ${format.toUpperCase()}!`);
+      const exportRequest = {
+        resumeId: id,
+        customLatexCode: latexCode,
+        paperSize: "letter",
+        orientation: "portrait",
+        dpi: 300,
+        backgroundColor: "white",
+        highQuality: true,
+      };
 
-      if (format === "latex") {
-        // Show LaTeX code
-        setLatexCode(getMockLatexCode());
-      } else {
-        // Trigger download for other formats
-        const link = document.createElement("a");
-        link.href = `#`; // In real app, this would be the download URL
-        link.download = `resume.${format}`;
-        link.click();
+      switch (format) {
+        case "latex":
+          const latexResponse = await ExportApiService.exportLatex(
+            exportRequest
+          );
+          if (latexResponse.success && latexResponse.data) {
+            setLatexCode(latexResponse.data);
+            toast.success("LaTeX code ready!");
+          } else {
+            throw new Error("Failed to generate LaTeX code");
+          }
+          break;
+
+        case "pdf":
+          const pdfResponse = await ExportApiService.exportPdf(exportRequest);
+          if (pdfResponse.success) {
+            toast.success("Resume exported as PDF!");
+          } else {
+            throw new Error(pdfResponse.error || "Failed to generate PDF");
+          }
+          break;
+
+        case "png":
+        case "jpg":
+          const imageResponse = await ExportApiService.exportImage(
+            exportRequest,
+            format as "png" | "jpg"
+          );
+          if (imageResponse.success) {
+            toast.success(`Resume exported as ${format.toUpperCase()}!`);
+          } else {
+            throw new Error(
+              imageResponse.error ||
+                `Failed to generate ${format.toUpperCase()} image`
+            );
+          }
+          break;
+
+        default:
+          throw new Error(`Unsupported format: ${format}`);
       }
     } catch (error) {
-      toast.error("Export failed. Please try again.");
+      console.error("Export error:", error);
+      toast.error(
+        `Export failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     } finally {
       setIsExporting(false);
     }
@@ -79,47 +149,35 @@ const ExportPage: React.FC = () => {
     toast.success("LaTeX code copied to clipboard!");
   };
 
-  const getMockLatexCode = () => {
-    return `\\documentclass[letterpaper,11pt]{article}
-\\usepackage{latexsym}
-\\usepackage[empty]{fullpage}
-\\usepackage{titlesec}
-\\usepackage{marvosym}
-\\usepackage[usenames,dvipsnames]{color}
-\\usepackage{verbatim}
-\\usepackage{enumitem}
-\\usepackage[hidelinks]{hyperref}
-\\usepackage{fancyhdr}
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12 flex items-center justify-center">
+        <div className="text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-12 h-12 border-4 border-gray-300 border-t-black rounded-full mx-auto mb-4"
+          />
+          <p className="text-lg text-gray-600">Loading your resume...</p>
+        </div>
+      </div>
+    );
+  }
 
-\\begin{document}
-
-\\begin{center}
-    \\textbf{\\Huge \\scshape John Doe} \\\\ \\vspace{1pt}
-    \\small +1-555-123-4567 $|$ \\href{mailto:john@example.com}{\\underline{john@example.com}} $|$ 
-    \\href{https://linkedin.com/in/johndoe}{\\underline{linkedin.com/in/johndoe}} $|$
-    \\href{https://github.com/johndoe}{\\underline{github.com/johndoe}}
-\\end{center}
-
-\\section{Education}
-  \\resumeSubHeadingListStart
-    \\resumeSubheading
-      {University of Technology}{City, State}
-      {Bachelor of Science in Computer Science}{May 2020}
-  \\resumeSubHeadingListEnd
-
-\\section{Experience}
-  \\resumeSubHeadingListStart
-    \\resumeSubheading
-      {Software Engineer}{June 2020 -- Present}
-      {Tech Company Inc.}{City, State}
-      \\resumeItemListStart
-        \\resumeItem{Developed scalable web applications using React and Node.js}
-        \\resumeItem{Collaborated with cross-functional teams to deliver features}
-      \\resumeItemListEnd
-  \\resumeSubHeadingListEnd
-
-\\end{document}`;
-  };
+  if (!resumeData) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Resume Not Found
+          </h1>
+          <p className="text-gray-600">
+            The requested resume could not be found.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -153,14 +211,18 @@ const ExportPage: React.FC = () => {
                 {resumeData.jobTitle} at {resumeData.companyName}
               </h3>
               <p className="text-gray-600">
-                Generated on {resumeData.createdAt}
+                Generated on{" "}
+                {new Date(resumeData.createdAt).toLocaleDateString()}
               </p>
             </div>
             <div className="text-right">
               <div className="flex items-center text-green-600">
                 <CheckCircle className="h-5 w-5 mr-2" />
                 <span className="font-semibold">
-                  {Math.round(resumeData.atsScore * 100)}% ATS Compatible
+                  {resumeData.atsCompatibilityScore
+                    ? Math.round(resumeData.atsCompatibilityScore * 100)
+                    : 95}
+                  % ATS Compatible
                 </span>
               </div>
               <p className="text-sm text-gray-500">Excellent match!</p>

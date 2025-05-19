@@ -37,15 +37,34 @@ public class ExportServiceImpl implements ExportService {
     public String generateLatexCode(ExportRequest request) {
         log.info("Generating LaTeX code for resume: {}", request.getResumeId());
         
-        Resume resume = resumeRepository.findById(request.getResumeId())
-            .orElseThrow(() -> new RuntimeException("Resume not found"));
-
-        // Return existing LaTeX code or custom code if provided
+        // Return custom LaTeX code if provided
         if (request.getCustomLatexCode() != null && !request.getCustomLatexCode().isEmpty()) {
             return request.getCustomLatexCode();
         }
+        
+        // Try to find the resume in database
+        Resume resume = resumeRepository.findById(request.getResumeId()).orElse(null);
+        
+        if (resume == null) {
+            log.warn("Resume not found: {}, using fallback template", request.getResumeId());
+            // Create a minimal resume object for fallback template
+            resume = Resume.builder()
+                .id(request.getResumeId())
+                .jobTitle("Professional")
+                .companyName("Target Company")
+                .build();
+            return generateFallbackLatexTemplate(resume);
+        }
 
-        return resume.getLatexCode();
+        String latexCode = resume.getLatexCode();
+        
+        // If no LaTeX code exists, generate fallback template
+        if (latexCode == null || latexCode.trim().isEmpty()) {
+            log.warn("No LaTeX code found for resume: {}, using fallback template", request.getResumeId());
+            latexCode = generateFallbackLatexTemplate(resume);
+        }
+
+        return latexCode;
     }
 
     @Override
@@ -306,6 +325,124 @@ public class ExportServiceImpl implements ExportService {
         }
     }
 
+    /**
+     * Generate a fallback LaTeX template when no LaTeX code exists
+     */
+    private String generateFallbackLatexTemplate(Resume resume) {
+        log.info("Generating fallback LaTeX template for resume: {}", resume.getId());
+        
+        // Use basic information from the resume if available
+        String jobTitle = resume.getJobTitle() != null ? resume.getJobTitle() : "Professional";
+        String companyName = resume.getCompanyName() != null ? resume.getCompanyName() : "Target Company";
+        
+        return String.format("""
+                \\documentclass[letterpaper,11pt]{article}
+                \\usepackage{latexsym}
+                \\usepackage[empty]{fullpage}
+                \\usepackage{titlesec}
+                \\usepackage{marvosym}
+                \\usepackage[usenames,dvipsnames]{color}
+                \\usepackage{verbatim}
+                \\usepackage{enumitem}
+                \\usepackage[hidelinks]{hyperref}
+                \\usepackage{fancyhdr}
+                \\usepackage[english]{babel}
+                \\usepackage{tabularx}
+                
+                \\pagestyle{fancy}
+                \\fancyhf{}
+                \\fancyfoot{}
+                \\renewcommand{\\headrulewidth}{0pt}
+                \\renewcommand{\\footrulewidth}{0pt}
+                
+                %% Adjust margins
+                \\addtolength{\\oddsidemargin}{-0.5in}
+                \\addtolength{\\evensidemargin}{-0.5in}
+                \\addtolength{\\textwidth}{1in}
+                \\addtolength{\\topmargin}{-.5in}
+                \\addtolength{\\textheight}{1.0in}
+                
+                \\urlstyle{same}
+                \\raggedbottom
+                \\raggedright
+                \\setlength{\\tabcolsep}{0in}
+                
+                %% Sections formatting
+                \\titleformat{\\section}{
+                  \\vspace{-4pt}\\scshape\\raggedright\\large
+                }{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]
+                
+                %% Custom commands
+                \\newcommand{\\resumeItem}[1]{
+                  \\item\\small{
+                    {#1 \\vspace{-2pt}}
+                  }
+                }
+                
+                \\newcommand{\\resumeSubheading}[4]{
+                  \\vspace{-2pt}\\item
+                    \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
+                      \\textbf{#1} & #2 \\\\
+                      \\textit{\\small#3} & \\textit{\\small #4} \\\\
+                    \\end{tabular*}\\vspace{-7pt}
+                }
+                
+                \\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
+                \\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
+                \\newcommand{\\resumeItemListStart}{\\begin{itemize}}
+                \\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
+                
+                \\begin{document}
+                
+                %%----------HEADING----------
+                \\begin{center}
+                    \\textbf{\\Huge \\scshape Your Name} \\\\ \\vspace{1pt}
+                    \\small Your Phone $|$ \\href{mailto:your.email@example.com}{\\underline{your.email@example.com}} $|$ 
+                    \\href{https://linkedin.com/in/yourprofile}{\\underline{linkedin.com/in/yourprofile}} $|$
+                    \\href{https://github.com/yourusername}{\\underline{github.com/yourusername}}
+                \\end{center}
+                
+                %%----------PROFESSIONAL SUMMARY----------
+                \\section{Professional Summary}
+                Experienced professional seeking opportunities as %s at %s. 
+                Skilled in various technologies and methodologies with a proven track record of delivering results.
+                
+                %%----------EXPERIENCE----------
+                \\section{Experience}
+                \\resumeSubHeadingListStart
+                    \\resumeSubheading
+                      {Your Job Title}{Date Range}
+                      {Company Name}{Location}
+                      \\resumeItemListStart
+                        \\resumeItem{Accomplished significant results through strategic initiatives}
+                        \\resumeItem{Collaborated with cross-functional teams to deliver projects}
+                        \\resumeItem{Developed and implemented solutions that improved efficiency}
+                      \\resumeItemListEnd
+                \\resumeSubHeadingListEnd
+                
+                %%----------EDUCATION----------
+                \\section{Education}
+                \\resumeSubHeadingListStart
+                    \\resumeSubheading
+                      {Your University}{Graduation Date}
+                      {Degree in Field of Study}{Location}
+                \\resumeSubHeadingListEnd
+                
+                %%----------TECHNICAL SKILLS----------
+                \\section{Technical Skills}
+                \\begin{itemize}[leftmargin=0.15in, label={}]
+                    \\small{\\item{
+                     \\textbf{Languages}{: Programming languages and technologies} \\\\
+                     \\textbf{Frameworks}{: Frameworks and libraries} \\\\
+                     \\textbf{Tools}{: Development tools and platforms} \\\\
+                     \\textbf{Databases}{: Database systems and query languages}
+                    }}
+                \\end{itemize}
+                
+                \\end{document}
+                """, jobTitle, companyName);
+    }
+    
     /**
      * Clean up temporary files to prevent memory leaks
      */

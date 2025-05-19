@@ -31,49 +31,19 @@ class ApiClient {
   }
 
   private resolveApiBaseUrl(): string {
-    const currentPort = window.location.port;
-    const currentHost = window.location.hostname;
-    
-    console.log(`🔗 API URL Resolution - Current: ${window.location.origin}, Port: ${currentPort}`);
+    console.log(`🔗 API URL Resolution - Current: ${window.location.origin}`);
 
-    // Check for explicit environment variable
+    // Check for explicit environment variable override
     const envApiUrl = import.meta.env.VITE_API_URL;
-    console.log(`🔗 Environment VITE_API_URL: ${envApiUrl}`);
-    
-    // Only use environment variable if it's not the Docker internal URL
-    if (envApiUrl && !envApiUrl.includes('localhost:8080')) {
+    if (envApiUrl) {
       const apiUrl = envApiUrl.endsWith('/api') ? envApiUrl : `${envApiUrl}/api`;
-      console.log(`🔗 Using environment API URL: ${apiUrl}`);
+      console.log(`🔗 Using environment override VITE_API_URL: ${apiUrl}`);
       return apiUrl;
     }
 
-    // Development scenarios
-    if (import.meta.env.DEV) {
-      // Direct frontend access on port 3000 (Vite dev server)
-      if (currentPort === '3000') {
-        const apiUrl = 'http://localhost:8080/api';
-        console.log(`🔗 Development port 3000 detected, using direct backend: ${apiUrl}`);
-        return apiUrl;
-      }
-      
-      // Docker frontend container (also port 3000 but containerized)
-      if (currentPort === '3000' && currentHost === 'localhost') {
-        const apiUrl = 'http://localhost:8080/api';
-        console.log(`🔗 Docker development detected, using host backend: ${apiUrl}`);
-        return apiUrl;
-      }
-    }
-
-    // NGINX proxy scenarios (port 80 or no port)
-    if (currentPort === '' || currentPort === '80' || currentPort === '443') {
-      const apiUrl = '/api';
-      console.log(`🔗 NGINX proxy detected, using relative path: ${apiUrl}`);
-      return apiUrl;
-    }
-
-    // Production fallback
-    const apiUrl = `${window.location.origin}/api`;
-    console.log(`🔗 Fallback to current origin: ${apiUrl}`);
+    // Default to relative /api (works with dev proxy and production)
+    const apiUrl = '/api';
+    console.log(`🔗 Using default relative API path: ${apiUrl}`);
     return apiUrl;
   }
 

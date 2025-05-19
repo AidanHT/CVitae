@@ -26,44 +26,88 @@ export class ExportApiService {
   /**
    * Export resume as PDF
    */
-  static async exportPdf(request: ExportRequest): Promise<ApiResponse<Response>> {
-    const response = await apiClient.post<Response>('/export/pdf', request);
-    
-    if (response.success && response.data) {
-      // Trigger download
-      const blob = await (response.data as Response).blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'resume.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+  static async exportPdf(request: ExportRequest): Promise<ApiResponse<void>> {
+    try {
+      const response = await apiClient.post<Response>('/export/pdf', request);
+      
+      if (response.success && response.data) {
+        // Get the Response object and create blob
+        const responseObj = response.data as Response;
+        const blob = await responseObj.blob();
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'resume.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        return {
+          success: true,
+          status: response.status,
+          traceId: response.traceId
+        };
+      } else {
+        return {
+          success: false,
+          status: response.status,
+          error: response.error || 'Failed to generate PDF',
+          traceId: response.traceId
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        status: 0,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
     }
-    
-    return response;
   }
 
   /**
    * Export resume as image (PNG/JPG)
    */
-  static async exportImage(request: ExportRequest, format: 'png' | 'jpg' = 'png'): Promise<ApiResponse<Response>> {
-    const response = await apiClient.post<Response>(`/export/image?format=${format}`, request);
-    
-    if (response.success && response.data) {
-      // Trigger download
-      const blob = await (response.data as Response).blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `resume.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+  static async exportImage(request: ExportRequest, format: 'png' | 'jpg' = 'png'): Promise<ApiResponse<void>> {
+    try {
+      const response = await apiClient.post<Response>(`/export/image?format=${format}`, request);
+      
+      if (response.success && response.data) {
+        // Get the Response object and create blob
+        const responseObj = response.data as Response;
+        const blob = await responseObj.blob();
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `resume.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        return {
+          success: true,
+          status: response.status,
+          traceId: response.traceId
+        };
+      } else {
+        return {
+          success: false,
+          status: response.status,
+          error: response.error || `Failed to generate ${format.toUpperCase()} image`,
+          traceId: response.traceId
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        status: 0,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
     }
-    
-    return response;
   }
 }
