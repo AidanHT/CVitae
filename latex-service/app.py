@@ -32,44 +32,91 @@ class LaTeXCompiler:
         
     def compile_latex_to_pdf(self, latex_content: str, output_name: str = "resume") -> str:
         """Compile LaTeX content to PDF"""
+        work_dir = None
         try:
+            logger.info(f"Starting LaTeX compilation for {output_name}")
+            
             # Create temporary directory for this compilation
             work_dir = self.temp_dir / f"{output_name}_{os.getpid()}"
             work_dir.mkdir(exist_ok=True)
+            logger.debug(f"Created work directory: {work_dir}")
             
             # Write LaTeX content to file
             tex_file = work_dir / f"{output_name}.tex"
             with open(tex_file, 'w', encoding='utf-8') as f:
                 f.write(latex_content)
+            logger.debug(f"Written LaTeX content to: {tex_file}")
             
-            # Compile LaTeX to PDF
+            # Compile LaTeX to PDF using latexmk for better error handling
             cmd = [
-                'pdflatex', 
+                'latexmk',
+                '-pdf',
                 '-interaction=nonstopmode',
-                '-output-directory', str(work_dir),
+                '-halt-on-error',
+                '-file-line-error',
+                '-output-directory=' + str(work_dir),
                 str(tex_file)
             ]
             
+            logger.debug(f"Running command: {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
             
+            logger.debug(f"latexmk return code: {result.returncode}")
+            if result.stdout:
+                logger.debug(f"latexmk stdout: {result.stdout}")
+            if result.stderr:
+                logger.debug(f"latexmk stderr: {result.stderr}")
+            
             if result.returncode != 0:
-                logger.error(f"LaTeX compilation failed: {result.stderr}")
-                raise Exception(f"LaTeX compilation failed: {result.stderr}")
+                # Try to get more detailed error from log file
+                log_file = work_dir / f"{output_name}.log"
+                log_content = ""
+                if log_file.exists():
+                    try:
+                        with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                            log_content = f.read()
+                        logger.error(f"LaTeX log file content: {log_content}")
+                    except Exception:
+                        pass
+                
+                # Parse and format the error for better debugging
+                parsed_errors = self.parse_latex_log(log_content) if log_content else {}
+                
+                error_msg = f"LaTeX compilation failed (return code: {result.returncode})\nSTDERR: {result.stderr}\nSTDOUT: {result.stdout}"
+                if log_content:
+                    error_msg += f"\nLOG: {log_content[-1000:]}"  # Last 1000 chars
+                
+                # Add parsed error analysis
+                if parsed_errors:
+                    error_msg += f"\n\nERROR ANALYSIS:\n"
+                    for error_type, errors in parsed_errors.items():
+                        if errors:
+                            error_msg += f"{error_type.upper()}: {', '.join(errors)}\n"
+                
+                logger.error(error_msg)
+                raise Exception(error_msg)
             
             pdf_file = work_dir / f"{output_name}.pdf"
             
             if not pdf_file.exists():
+                logger.error(f"PDF file was not generated at: {pdf_file}")
+                # List files in work directory for debugging
+                files = list(work_dir.glob("*"))
+                logger.error(f"Files in work directory: {files}")
                 raise Exception("PDF file was not generated")
             
+            logger.info(f"Successfully compiled LaTeX to PDF: {pdf_file}")
             return str(pdf_file)
             
         except Exception as e:
             logger.error(f"Error compiling LaTeX: {str(e)}")
+            # Don't cleanup on error so we can debug
             raise
     
     def pdf_to_image(self, pdf_path: str, output_format: str = "png", dpi: int = 300) -> str:
         """Convert PDF to image format"""
         try:
+            logger.info(f"Converting PDF to {output_format} at {dpi} DPI")
             work_dir = Path(pdf_path).parent
             output_file = work_dir / f"resume.{output_format}"
             
@@ -78,25 +125,88 @@ class LaTeXCompiler:
                 'convert',
                 '-density', str(dpi),
                 '-quality', '100',
+                '-background', 'white',
+                '-alpha', 'remove',
                 pdf_path,
                 str(output_file)
             ]
             
+            logger.debug(f"Running ImageMagick command: {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True)
             
+            logger.debug(f"ImageMagick return code: {result.returncode}")
+            if result.stdout:
+                logger.debug(f"ImageMagick stdout: {result.stdout}")
+            if result.stderr:
+                logger.debug(f"ImageMagick stderr: {result.stderr}")
+            
             if result.returncode != 0:
-                logger.error(f"Image conversion failed: {result.stderr}")
-                raise Exception(f"Image conversion failed: {result.stderr}")
+                error_msg = f"Image conversion failed (return code: {result.returncode})\nSTDERR: {result.stderr}\nSTDOUT: {result.stdout}"
+                logger.error(error_msg)
+                raise Exception(error_msg)
             
             if not output_file.exists():
+                logger.error(f"Image file was not generated at: {output_file}")
+                # List files in work directory for debugging
+                files = list(work_dir.glob("*"))
+                logger.error(f"Files in work directory: {files}")
                 raise Exception("Image file was not generated")
             
+            logger.info(f"Successfully converted PDF to image: {output_file}")
             return str(output_file)
             
         except Exception as e:
             logger.error(f"Error converting PDF to image: {str(e)}")
             raise
     
+    def parse_latex_log(self, log_content: str) -> dict:
+        """Parse LaTeX log to extract actionable error information"""
+        import re
+        
+        errors = {
+            'missing_document': [],
+            'undefined_commands': [],
+            'lonely_items': [],
+            'misaligned_amp': [],
+            'missing_dollar': [],
+            'font_errors': [],
+            'package_errors': []
+        }
+        
+        if not log_content:
+            return errors
+        
+        # Check for missing \begin{document}
+        if re.search(r'Missing \\begin\{document\}', log_content):
+            errors['missing_document'].append('Document missing \\begin{document}')
+        
+        # Extract undefined control sequences
+        undefined_matches = re.findall(r'Undefined control sequence\.\s*l\.\d+\s+(\\[A-Za-z@]+)', log_content)
+        errors['undefined_commands'] = list(set(undefined_matches))  # Remove duplicates
+        
+        # Check for lonely items
+        if re.search(r'Lonely \\item', log_content):
+            errors['lonely_items'].append('\\item commands outside list environments')
+        
+        # Check for misaligned ampersands
+        if re.search(r'Misplaced alignment tab character &', log_content):
+            errors['misaligned_amp'].append('Unescaped & characters outside tables')
+        
+        # Check for missing dollar signs
+        if re.search(r'Missing \$ inserted', log_content):
+            errors['missing_dollar'].append('Unescaped $ characters or math mode issues')
+        
+        # Check for font errors
+        if re.search(r'Font .* not found', log_content):
+            errors['font_errors'].append('Missing font files')
+        
+        # Check for package errors
+        package_error_matches = re.findall(r'! LaTeX Error: File `([^\']+)\' not found', log_content)
+        if package_error_matches:
+            errors['package_errors'] = list(set(package_error_matches))
+        
+        return {k: v for k, v in errors.items() if v}  # Return only non-empty error categories
+
     def cleanup(self, work_dir: str):
         """Clean up temporary files"""
         try:
@@ -107,6 +217,32 @@ class LaTeXCompiler:
 # Initialize compiler
 compiler = LaTeXCompiler()
 
+def check_system_dependencies():
+    """Check that all required system dependencies are available"""
+    dependencies = ['latexmk', 'pdflatex', 'convert']
+    missing = []
+    
+    for dep in dependencies:
+        try:
+            # Different version flags for different tools
+            version_flag = '--version' if dep != 'latexmk' else '-version'
+            result = subprocess.run([dep, version_flag], capture_output=True, text=True)
+            if result.returncode == 0:
+                logger.info(f"✅ {dep} is available")
+            else:
+                missing.append(dep)
+        except FileNotFoundError:
+            missing.append(dep)
+    
+    if missing:
+        logger.error(f"❌ Missing required dependencies: {missing}")
+        raise RuntimeError(f"Missing system dependencies: {missing}")
+    
+    logger.info("✅ All system dependencies are available")
+
+# Check dependencies on startup
+check_system_dependencies()
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -116,16 +252,23 @@ def health_check():
 def compile_to_pdf():
     """Compile LaTeX to PDF"""
     try:
+        logger.info("Received PDF compilation request")
         data = request.get_json()
         
         if not data or 'latex' not in data:
+            logger.error("Missing LaTeX content in request")
             return jsonify({"error": "LaTeX content is required"}), 400
         
         latex_content = data['latex']
         output_name = data.get('name', 'resume')
         
+        logger.info(f"Compiling LaTeX to PDF: {output_name}")
+        logger.debug(f"LaTeX content length: {len(latex_content)} characters")
+        
         # Compile LaTeX to PDF
         pdf_path = compiler.compile_latex_to_pdf(latex_content, output_name)
+        
+        logger.info(f"Successfully compiled PDF, returning file: {pdf_path}")
         
         # Return PDF file
         return send_file(
@@ -143,9 +286,11 @@ def compile_to_pdf():
 def compile_to_image():
     """Compile LaTeX to image format"""
     try:
+        logger.info("Received image compilation request")
         data = request.get_json()
         
         if not data or 'latex' not in data:
+            logger.error("Missing LaTeX content in request")
             return jsonify({"error": "LaTeX content is required"}), 400
         
         latex_content = data['latex']
@@ -153,7 +298,11 @@ def compile_to_image():
         format_type = data.get('format', 'png').lower()
         dpi = data.get('dpi', 300)
         
+        logger.info(f"Compiling LaTeX to {format_type} image: {output_name} at {dpi} DPI")
+        logger.debug(f"LaTeX content length: {len(latex_content)} characters")
+        
         if format_type not in ['png', 'jpg', 'jpeg']:
+            logger.error(f"Unsupported image format: {format_type}")
             return jsonify({"error": "Unsupported image format"}), 400
         
         # Compile LaTeX to PDF first
@@ -168,6 +317,8 @@ def compile_to_image():
             'jpg': 'image/jpeg',
             'jpeg': 'image/jpeg'
         }.get(format_type, 'image/png')
+        
+        logger.info(f"Successfully compiled image, returning file: {image_path}")
         
         # Return image file
         return send_file(

@@ -5,13 +5,12 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.Map;
-import java.util.UUID;
 
 @Data
 public class ExportRequest {
     
     @NotNull(message = "Resume ID cannot be null")
-    private UUID resumeId;
+    private String resumeId;
     
     private String customLatexCode; // If user wants to use custom LaTeX
     
