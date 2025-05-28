@@ -22,6 +22,11 @@ import java.util.UUID;
 // CORS handled globally in CorsConfig.java
 public class ResumeController {
 
+    // Add logging to admin system
+    private void addAdminLog(String message) {
+        com.cvitae.controller.AdminController.addLog("ResumeController: " + message);
+    }
+
     private final ResumeService resumeService;
 
     @PostMapping("/analyze-job")
@@ -34,6 +39,7 @@ public class ResumeController {
     @PostMapping("/generate")
     public ResponseEntity<ResumeResponse> generateResume(@Valid @RequestBody GenerateResumeRequest request) {
         log.info("Generating tailored resume for job posting");
+        addAdminLog("Resume generation started for " + request.getJobTitle() + " at " + request.getCompanyName());
         ResumeResponse response = resumeService.generateTailoredResume(request);
         return ResponseEntity.ok(response);
     }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { ResumeApiService, GenerateResumeRequest } from "../services/resumeApi";
+import LatexErrorDisplay from "../components/LatexErrorDisplay";
 
 const ResumeBuilderPage: React.FC = () => {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ const ResumeBuilderPage: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [isUploadingJob, setIsUploadingJob] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [debugSession, setDebugSession] = useState<string | null>(null);
 
   // Separate file upload state
   const [uploadedResumeFile, setUploadedResumeFile] = useState<{
@@ -203,6 +206,10 @@ const ResumeBuilderPage: React.FC = () => {
       return;
     }
 
+    // Clear previous errors
+    setGenerationError(null);
+    setDebugSession(null);
+
     setIsGenerating(true);
     try {
       const request: GenerateResumeRequest = {
@@ -230,7 +237,26 @@ const ResumeBuilderPage: React.FC = () => {
       }
     } catch (error) {
       console.error("Error generating resume:", error);
-      toast.error("Failed to generate resume. Please try again.");
+
+      // Extract debug session from error message if available
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Debug Session:")) {
+        const match = errorMessage.match(/Debug Session:\s*([^\s\n]+)/);
+        if (match) {
+          setDebugSession(match[1]);
+        }
+      }
+
+      // Show detailed error for LaTeX compilation issues
+      if (errorMessage.includes("LATEX COMPILATION ERROR")) {
+        setGenerationError(errorMessage);
+        console.error(
+          "🔥 LaTeX Compilation Failed during generation - Showing detailed error display"
+        );
+      } else {
+        toast.error("Failed to generate resume. Please try again.");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -309,6 +335,22 @@ const ResumeBuilderPage: React.FC = () => {
             ))}
           </div>
         </div>
+
+        {/* Generation Error Display */}
+        {generationError && (
+          <div className="mb-8">
+            <LatexErrorDisplay
+              error={generationError}
+              title="Resume Generation Error"
+              debugSession={debugSession}
+              onRetry={() => {
+                setGenerationError(null);
+                setDebugSession(null);
+                handleGenerateResume();
+              }}
+            />
+          </div>
+        )}
 
         {/* Step Content */}
         <div className="bg-white rounded-xl shadow-elegant p-8">

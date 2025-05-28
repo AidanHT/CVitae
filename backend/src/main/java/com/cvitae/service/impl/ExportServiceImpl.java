@@ -21,9 +21,8 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -127,7 +126,12 @@ public class ExportServiceImpl implements ExportService {
                             if (debugEnabled && finalDebugSession != null) {
                                 saveDebugError(finalDebugSession, body);
                             }
-                            return new RuntimeException("LaTeX service error: " + body);
+                            
+                            // Parse detailed LaTeX error information
+                            String enhancedError = enhanceLatexErrorMessage(body, finalDebugSession);
+                            log.error("LaTeX compilation failed - Debug Session: {} - Error: {}", finalDebugSession, enhancedError);
+                            
+                            return new RuntimeException(enhancedError);
                         })
                 )
                 .bodyToMono(byte[].class)
@@ -184,7 +188,11 @@ public class ExportServiceImpl implements ExportService {
                 .onStatus(
                     status -> status.is4xxClientError() || status.is5xxServerError(),
                     response -> response.bodyToMono(String.class)
-                        .map(body -> new RuntimeException("LaTeX service error: " + body))
+                        .map(body -> {
+                            String enhancedError = enhanceLatexErrorMessage(body, null);
+                            log.error("LaTeX image compilation failed - Error: {}", enhancedError);
+                            return new RuntimeException(enhancedError);
+                        })
                 )
                 .bodyToMono(byte[].class)
                 .timeout(Duration.ofSeconds(90))
@@ -514,6 +522,9 @@ public class ExportServiceImpl implements ExportService {
               \\item #1 \\hfill \\textit{#2}
             }
             
+            %% Legacy macro for compatibility
+            \\newcommand{\\resumeSubItem}[1]{\\resumeItem{#1}\\vspace{-4pt}}
+            
             %% Safe text escaping helpers (backup macros)
             \\newcommand{\\safeampersand}{\\&}
             \\newcommand{\\safedollar}{\\$}
@@ -727,6 +738,142 @@ public class ExportServiceImpl implements ExportService {
         }
     }
 
+    /**
+     * Enhance LaTeX error messages with detailed debugging information
+     */
+    private String enhanceLatexErrorMessage(String rawError, String debugSession) {
+        if (rawError == null || rawError.trim().isEmpty()) {
+            return "LaTeX compilation failed with unknown error";
+        }
+        
+        try {
+            StringBuilder enhanced = new StringBuilder();
+            enhanced.append("🔥 LATEX COMPILATION ERROR\n");
+            enhanced.append("═══════════════════════════════════════\n");
+            
+            if (debugSession != null) {
+                enhanced.append("🔍 Debug Session: ").append(debugSession).append("\n");
+                enhanced.append("📁 Debug Files: ").append(debugDirectory).append("/").append(debugSession).append("*\n");
+            }
+            
+            // Parse JSON error response from LaTeX service
+            if (rawError.startsWith("{")) {
+                enhanced.append("\n📋 DETAILED ERROR ANALYSIS:\n");
+                enhanced.append("─────────────────────────────────────\n");
+                
+                // Extract key error information
+                if (rawError.contains("Undefined control sequence")) {
+                    enhanced.append("❌ UNDEFINED MACROS DETECTED\n");
+                    enhanced.append("   Problem: LaTeX cannot find required macro definitions\n");
+                    enhanced.append("   Solution: Ensure all \\resumeItem, \\resumeSubheading macros are defined\n\n");
+                }
+                
+                if (rawError.contains("Lonely \\item")) {
+                    enhanced.append("❌ LONELY ITEMS DETECTED\n");
+                    enhanced.append("   Problem: \\item commands found outside list environments\n");
+                    enhanced.append("   Solution: Wrap items in \\resumeItemListStart...\\resumeItemListEnd\n\n");
+                }
+                
+                if (rawError.contains("Missing \\begin{document}")) {
+                    enhanced.append("❌ DOCUMENT STRUCTURE ERROR\n");
+                    enhanced.append("   Problem: LaTeX document is missing \\begin{document}\n");
+                    enhanced.append("   Solution: Check template structure and AI output format\n\n");
+                }
+                
+                if (rawError.contains("Misplaced alignment tab character &")) {
+                    enhanced.append("❌ UNESCAPED SPECIAL CHARACTERS\n");
+                    enhanced.append("   Problem: & character not properly escaped\n");
+                    enhanced.append("   Solution: Replace & with \\& in text content\n\n");
+                }
+                
+                if (rawError.contains("Missing $ inserted")) {
+                    enhanced.append("❌ MATH MODE ERRORS\n");
+                    enhanced.append("   Problem: Unescaped $ characters or math syntax issues\n");
+                    enhanced.append("   Solution: Escape $ as \\$ or fix math mode syntax\n\n");
+                }
+            }
+            
+            enhanced.append("🔧 DEBUGGING STEPS:\n");
+            enhanced.append("─────────────────────\n");
+            enhanced.append("1. Check console output for detailed LaTeX log\n");
+            enhanced.append("2. Verify all macro definitions are included\n");
+            enhanced.append("3. Look for unescaped special characters: & $ % _ { }\n");
+            enhanced.append("4. Ensure proper document structure\n");
+            enhanced.append("5. Check for lonely \\item commands\n\n");
+            
+            enhanced.append("📄 RAW ERROR RESPONSE:\n");
+            enhanced.append("─────────────────────\n");
+            enhanced.append(rawError);
+            
+            String result = enhanced.toString();
+            
+            // Also log to console for immediate visibility
+            log.error("\n" + result);
+            
+            return result;
+            
+        } catch (Exception e) {
+            log.warn("Failed to enhance error message: {}", e.getMessage());
+            return "LaTeX compilation failed: " + rawError;
+        }
+    }
+    
+    @Override
+    public Map<String, Object> getDebugInfo(String sessionId) {
+        Map<String, Object> debugInfo = new HashMap<>();
+        
+        try {
+            Path debugDir = Paths.get(debugDirectory);
+            
+            // Find all files for this session
+            List<Path> sessionFiles = Files.list(debugDir)
+                    .filter(path -> path.getFileName().toString().startsWith(sessionId))
+                    .sorted()
+                    .collect(Collectors.toList());
+            
+            if (sessionFiles.isEmpty()) {
+                debugInfo.put("error", "No debug files found for session: " + sessionId);
+                return debugInfo;
+            }
+            
+            debugInfo.put("sessionId", sessionId);
+            debugInfo.put("debugDirectory", debugDirectory);
+            debugInfo.put("filesFound", sessionFiles.size());
+            
+            List<Map<String, Object>> files = new ArrayList<>();
+            
+            for (Path file : sessionFiles) {
+                Map<String, Object> fileInfo = new HashMap<>();
+                fileInfo.put("name", file.getFileName().toString());
+                fileInfo.put("size", Files.size(file));
+                fileInfo.put("lastModified", Files.getLastModifiedTime(file).toString());
+                
+                // Read file content if it's a text file and small enough
+                String fileName = file.getFileName().toString();
+                if ((fileName.endsWith(".tex") || fileName.endsWith(".log") || fileName.endsWith(".txt")) 
+                    && Files.size(file) < 50000) { // Limit to 50KB
+                    try {
+                        String content = Files.readString(file);
+                        fileInfo.put("content", content);
+                    } catch (Exception e) {
+                        fileInfo.put("contentError", "Failed to read: " + e.getMessage());
+                    }
+                }
+                
+                files.add(fileInfo);
+            }
+            
+            debugInfo.put("files", files);
+            debugInfo.put("timestamp", LocalDateTime.now().toString());
+            
+        } catch (Exception e) {
+            log.error("Failed to get debug info for session {}: {}", sessionId, e.getMessage());
+            debugInfo.put("error", "Failed to retrieve debug info: " + e.getMessage());
+        }
+        
+        return debugInfo;
+    }
+    
     /**
      * Clean up temporary files to prevent memory leaks
      */

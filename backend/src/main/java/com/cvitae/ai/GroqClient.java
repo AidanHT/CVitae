@@ -225,6 +225,18 @@ public class GroqClient {
             %__END_LATEX__
             
             ABSOLUTELY NO TEXT outside these sentinels. No explanations, no markdown, no backticks.
+            
+            MANDATORY MACRO DEFINITIONS - INCLUDE THESE EXACTLY:
+            You MUST include ALL of Jake's macro definitions before the \\begin{document}. These are required:
+            • \\newcommand{\\resumeItem}[1]{...}
+            • \\newcommand{\\resumeSubheading}[4]{...}
+            • \\newcommand{\\resumeProjectHeading}[2]{...}
+            • \\newcommand{\\resumeSubHeadingListStart}{...}
+            • \\newcommand{\\resumeSubHeadingListEnd}{...}
+            • \\newcommand{\\resumeItemListStart}{...}
+            • \\newcommand{\\resumeItemListEnd}{...}
+            • \\newcommand{\\resumeSubItem}[1]{...}
+            • ALL safe escaping helpers
             """;
 
         String userPrompt = String.format("""
@@ -253,8 +265,11 @@ public class GroqClient {
             - Any conversational language
             
             ✅ YOUR RESPONSE MUST:
-            - Start immediately with: \\documentclass[letterpaper,11pt]{article}
+            - Start immediately with: %__BEGIN_LATEX__
+            - Follow with: \\documentclass[letterpaper,11pt]{article}
+            - Include ALL required packages and macro definitions
             - End with: \\end{document}
+            - Close with: %__END_LATEX__
             - Contain ONLY valid LaTeX code that compiles without errors
             - Be ready to save directly to a .tex file
             
@@ -418,8 +433,14 @@ public class GroqClient {
             
         } catch (Exception e) {
             log.error("LaTeX cleaning pipeline failed: {}", e.getMessage());
-            // Return fallback template instead of throwing
-            return generateFallbackLatexDocument();
+            // Try to preserve AI content by using basic document wrapping before falling back
+            try {
+                log.warn("Attempting to preserve AI content with basic document wrapping");
+                return wrapInBasicDocument(response.trim());
+            } catch (Exception fallbackError) {
+                log.error("Fallback wrapping also failed, using emergency template");
+                return generateFallbackLatexDocument();
+            }
         }
     }
 
@@ -457,6 +478,7 @@ public class GroqClient {
         }
         
         log.warn("Sentinels not found, falling back to document class detection");
+        log.debug("Input content preview: {}", input.substring(0, Math.min(200, input.length())));
         
         // Fallback: look for \documentclass to \end{document}
         int docClassStart = input.indexOf("\\documentclass");
@@ -699,6 +721,9 @@ public class GroqClient {
             \\newcommand{\\resumeCertification}[2]{
               \\item #1 \\hfill \\textit{#2}
             }
+            
+            %% Legacy macro for compatibility
+            \\newcommand{\\resumeSubItem}[1]{\\resumeItem{#1}\\vspace{-4pt}}
             
             %% Safe text escaping helpers (backup macros)
             \\newcommand{\\safeampersand}{\\&}

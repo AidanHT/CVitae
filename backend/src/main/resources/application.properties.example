@@ -11,6 +11,10 @@ groq.api.key=your-groq-api-key-here
 # LaTeX Service Configuration  
 latex.service.url=http://latex-service:8080
 
+# LaTeX Debug Configuration
+latex.debug.enabled=true
+latex.debug.directory=/tmp/debug
+
 # CORS Configuration (adjust for your frontend URL)
 cors.allowed-origins=http://localhost:3000,https://your-domain.com
 

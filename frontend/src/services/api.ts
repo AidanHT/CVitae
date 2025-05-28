@@ -114,7 +114,21 @@ class ApiClient {
       } else {
         // Handle structured error responses
         const apiError = responseData as ApiError;
-        console.error(`❌ API Error [${traceId}]:`, apiError);
+        
+        // Enhanced logging for LaTeX compilation errors
+        if (apiError.message && apiError.message.includes('LATEX COMPILATION ERROR')) {
+          console.error(`🔥 LaTeX Compilation Error [${traceId}]:`);
+          console.group('LaTeX Error Details');
+          console.error('Full Error Message:', apiError.message);
+          console.error('Trace ID:', traceId);
+          console.error('Status Code:', response.status);
+          if (apiError.details) {
+            console.error('Additional Details:', apiError.details);
+          }
+          console.groupEnd();
+        } else {
+          console.error(`❌ API Error [${traceId}]:`, apiError);
+        }
         
         return {
           error: apiError.message || `HTTP ${response.status}`,

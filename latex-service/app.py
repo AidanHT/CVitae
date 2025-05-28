@@ -377,57 +377,59 @@ def get_jakes_template():
     jakes_template = """
 \\documentclass[letterpaper,11pt]{article}
 
+%% Core packages for professional resume (ATS-friendly)
 \\usepackage{latexsym}
 \\usepackage[empty]{fullpage}
 \\usepackage{titlesec}
 \\usepackage{marvosym}
 \\usepackage[usenames,dvipsnames]{color}
-\\usepackage{verbatim}
 \\usepackage{enumitem}
 \\usepackage[hidelinks]{hyperref}
 \\usepackage{fancyhdr}
 \\usepackage[english]{babel}
 \\usepackage{tabularx}
+\\usepackage[utf8]{inputenc}
+\\usepackage[T1]{fontenc}
+\\usepackage{lmodern}
 \\input{glyphtounicode}
 
-% Font options
-\\usepackage[sfdefault]{FiraSans}
-\\usepackage[T1]{fontenc}
-
+%% Page formatting and margins
 \\pagestyle{fancy}
-\\fancyhf{} 
+\\fancyhf{}
 \\fancyfoot{}
 \\renewcommand{\\headrulewidth}{0pt}
 \\renewcommand{\\footrulewidth}{0pt}
-
-% Adjust margins
+\\setlength{\\headheight}{14pt}  % Fix fancyhdr warning
 \\addtolength{\\oddsidemargin}{-0.5in}
 \\addtolength{\\evensidemargin}{-0.5in}
 \\addtolength{\\textwidth}{1in}
 \\addtolength{\\topmargin}{-.5in}
 \\addtolength{\\textheight}{1.0in}
-
 \\urlstyle{same}
-
 \\raggedbottom
 \\raggedright
 \\setlength{\\tabcolsep}{0in}
+\\setlength{\\parindent}{0pt}
 
-% Sections formatting
+%% Section title formatting
 \\titleformat{\\section}{
   \\vspace{-4pt}\\scshape\\raggedright\\large
 }{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]
 
-% Ensure that generate pdf is machine readable/ATS parsable
+%% PDF settings for ATS compatibility
 \\pdfgentounicode=1
 
-% Custom commands
+%% ========== JAKE'S RESUME TEMPLATE MACROS ==========
+%% These macros define the structure and formatting for resume elements
+
+%% Basic item with proper spacing
 \\newcommand{\\resumeItem}[1]{
   \\item\\small{
     {#1 \\vspace{-2pt}}
   }
 }
 
+%% Four-argument subheading for positions/education
 \\newcommand{\\resumeSubheading}[4]{
   \\vspace{-2pt}\\item
     \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
@@ -436,32 +438,66 @@ def get_jakes_template():
     \\end{tabular*}\\vspace{-7pt}
 }
 
-\\newcommand{\\resumeSubSubheading}[2]{
-    \\item
-    \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
-      \\textit{\\small#1} & \\textit{\\small #2} \\\\
+%% Education-specific subheading with proper formatting
+\\newcommand{\\resumeSubheadingEducation}[4]{
+  \\vspace{-2pt}\\item
+    \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
+      \\textbf{#1} & #2 \\\\
+      \\textit{\\small#3} & \\textit{\\small #4} \\\\
     \\end{tabular*}\\vspace{-7pt}
 }
 
+%% Two-argument project heading
 \\newcommand{\\resumeProjectHeading}[2]{
-    \\item
+  \\item
     \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
       \\small#1 & #2 \\\\
     \\end{tabular*}\\vspace{-7pt}
 }
 
-\\newcommand{\\resumeSubItem}[1]{\\resumeItem{#1}\\vspace{-4pt}}
+%% Alternative subheading styles for flexibility
+\\newcommand{\\resumeSubSubheading}[2]{
+  \\item
+    \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
+      \\textit{\\small#1} & \\textit{\\small #2} \\\\
+    \\end{tabular*}\\vspace{-7pt}
+}
 
-\\renewcommand\\labelitemii{$\\vcenter{\\hbox{\\tiny$\\bullet$}}$}
-
+%% List environment commands
 \\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
 \\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
 \\newcommand{\\resumeItemListStart}{\\begin{itemize}}
 \\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
 
+%% Custom bullet for nested lists
+\\renewcommand\\labelitemii{$\\vcenter{\\hbox{\\tiny$\\bullet$}}$}
+
+%% Skills section helper
+\\newcommand{\\resumeSkillItem}[2]{
+  \\item{\\textbf{#1:} #2}
+}
+
+%% Additional macros for common resume elements
+\\newcommand{\\resumeAward}[2]{
+  \\item \\textbf{#1} \\hfill #2
+}
+
+\\newcommand{\\resumeCertification}[2]{
+  \\item #1 \\hfill \\textit{#2}
+}
+
+%% Legacy macro for compatibility
+\\newcommand{\\resumeSubItem}[1]{\\resumeItem{#1}\\vspace{-4pt}}
+
+%% Safe text escaping helpers (backup macros)
+\\newcommand{\\safeampersand}{\\&}
+\\newcommand{\\safedollar}{\\$}
+\\newcommand{\\safepercent}{\\%}
+\\newcommand{\\safeunderscore}{\\_}
+
 \\begin{document}
 
-% HEADING
+%% HEADER SECTION
 \\begin{center}
     \\textbf{\\Huge \\scshape [Your Name]} \\\\ \\vspace{1pt}
     \\small [Phone] $|$ \\href{mailto:[email]}{\\underline{[email]}} $|$ 
@@ -469,37 +505,15 @@ def get_jakes_template():
     \\href{[github]}{\\underline{github.com/[username]}}
 \\end{center}
 
-% EDUCATION
+%% EDUCATION SECTION
 \\section{Education}
   \\resumeSubHeadingListStart
     \\resumeSubheading
-      {[University Name]}{[Location]}
-      {[Degree] in [Major]}{[Start Date] -- [End Date]}
+      {[University Name]}{[Start Date] -- [End Date]}
+      {[Degree] in [Major]}{[Location]}
   \\resumeSubHeadingListEnd
 
-% EXPERIENCE
-\\section{Experience}
-  \\resumeSubHeadingListStart
-    \\resumeSubheading
-      {[Job Title]}{[Start Date] -- [End Date]}
-      {[Company Name]}{[Location]}
-      \\resumeItemListStart
-        \\resumeItem{[Achievement or responsibility]}
-        \\resumeItem{[Achievement or responsibility]}
-      \\resumeItemListEnd
-  \\resumeSubHeadingListEnd
-
-% PROJECTS
-\\section{Projects}
-    \\resumeSubHeadingListStart
-      \\resumeProjectHeading
-          {\\textbf{[Project Name]} $|$ \\emph{[Technologies Used]}}{[Date]}
-          \\resumeItemListStart
-            \\resumeItem{[Project description or achievement]}
-          \\resumeItemListEnd
-    \\resumeSubHeadingListEnd
-
-% TECHNICAL SKILLS
+%% TECHNICAL SKILLS SECTION
 \\section{Technical Skills}
  \\begin{itemize}[leftmargin=0.15in, label={}]
     \\small{\\item{
@@ -509,6 +523,28 @@ def get_jakes_template():
      \\textbf{Libraries}{: [Additional Libraries]}
     }}
  \\end{itemize}
+
+%% EXPERIENCE SECTION
+\\section{Experience}
+  \\resumeSubHeadingListStart
+    \\resumeSubheading
+      {[Job Title]}{[Start Date] -- [End Date]}
+      {[Company Name]}{[Location]}
+      \\resumeItemListStart
+        \\resumeItem{[Achievement or responsibility with quantified results]}
+        \\resumeItem{[Achievement or responsibility with quantified results]}
+      \\resumeItemListEnd
+  \\resumeSubHeadingListEnd
+
+%% PROJECTS SECTION
+\\section{Projects}
+    \\resumeSubHeadingListStart
+      \\resumeProjectHeading
+          {\\textbf{[Project Name]} \\;|\\; \\emph{[Technologies Used]}}{[Date]}
+          \\resumeItemListStart
+            \\resumeItem{[Project description or achievement with specific metrics]}
+          \\resumeItemListEnd
+    \\resumeSubHeadingListEnd
 
 \\end{document}
 """

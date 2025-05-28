@@ -207,10 +207,47 @@ public class GroqRequest {
             
             🎯 JAKE'S TEMPLATE SPECIFICATION (MANDATORY):
             • Document Class: \\documentclass[letterpaper,11pt]{article}
-            • Required Packages: latexsym, [empty]fullpage, titlesec, marvosym, [usenames,dvipsnames]color, enumitem, [hidelinks]hyperref, fancyhdr, [english]babel, tabularx, \\input{glyphtounicode}
-            • Page Setup: Exact margin settings, \\pdfgentounicode=1, proper spacing commands
+            • Required Packages (EXACT ORDER):
+              \\usepackage{latexsym}
+              \\usepackage[empty]{fullpage}  
+              \\usepackage{titlesec}
+              \\usepackage{marvosym}
+              \\usepackage[usenames,dvipsnames]{color}
+              \\usepackage{enumitem}
+              \\usepackage[hidelinks]{hyperref}
+              \\usepackage{fancyhdr}
+              \\usepackage[english]{babel}
+              \\usepackage{tabularx}
+              \\usepackage[utf8]{inputenc}
+              \\usepackage[T1]{fontenc}
+              \\usepackage{lmodern}
+              \\input{glyphtounicode}
             • Custom Macros: ALL must be defined exactly as in Jake's template
             • Section Order: EDUCATION → SKILLS → EXPERIENCE → PROJECTS (non-negotiable)
+            
+            🏆 ESSENTIAL JAKE'S MACROS (MUST INCLUDE ALL):
+            \\newcommand{\\resumeItem}[1]{
+              \\item\\small{
+                {#1 \\vspace{-2pt}}
+              }
+            }
+            \\newcommand{\\resumeSubheading}[4]{
+              \\vspace{-2pt}\\item
+                \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
+                  \\textbf{#1} & #2 \\\\
+                  \\textit{\\small#3} & \\textit{\\small #4} \\\\
+                \\end{tabular*}\\vspace{-7pt}
+            }
+            \\newcommand{\\resumeProjectHeading}[2]{
+              \\item
+                \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
+                  \\small#1 & #2 \\\\
+                \\end{tabular*}\\vspace{-7pt}
+            }
+            \\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
+            \\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
+            \\newcommand{\\resumeItemListStart}{\\begin{itemize}}
+            \\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
             
             🏆 EXCELLENCE REQUIREMENTS:
             • Header: Professional contact with proper \\href formatting
@@ -243,7 +280,18 @@ public class GroqRequest {
             ✅ Zero compilation errors or warnings
             ✅ Professional typography and visual hierarchy
             
-            OUTPUT PURE, COMPILABLE LATEX CODE ONLY.
+            🚨 CRITICAL SENTINEL REQUIREMENT:
+            YOU MUST wrap your LaTeX code with these EXACT sentinels:
+            
+            %__BEGIN_LATEX__
+            \\documentclass[letterpaper,11pt]{article}
+            [YOUR COMPLETE LATEX CODE HERE]
+            \\end{document}
+            %__END_LATEX__
+            
+            ABSOLUTELY NO TEXT outside these sentinels. No explanations, no markdown, no backticks.
+            
+            OUTPUT PURE, COMPILABLE LATEX CODE WITH SENTINELS ONLY.
             """, resumeContent, targetLength);
             
         return GroqRequest.builder()

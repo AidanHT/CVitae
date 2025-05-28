@@ -53,4 +53,11 @@ public interface ExportService {
      * @return true if valid
      */
     boolean validateExportedFile(Resource resource, String format);
+    
+    /**
+     * Get debug information for a specific session
+     * @param sessionId Debug session ID
+     * @return Debug information including files and logs
+     */
+    Map<String, Object> getDebugInfo(String sessionId);
 }

@@ -23,12 +23,16 @@ services:
       context: ../backend
       dockerfile: Dockerfile
     container_name: CVitae-backend
+    env_file:
+      - .env
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/cvitae
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=password
-      - GROQ_API_KEY=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
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - LATEX_SERVICE_URL=http://latex-service:8080
+      - LATEX_DEBUG_ENABLED=true
+      - LATEX_DEBUG_DIRECTORY=/tmp/debug
     ports:
       - "8080:8080"
     depends_on:
@@ -38,6 +42,7 @@ services:
       - cvitae-network
     volumes:
       - backend_logs:/app/logs
+      - backend_debug:/tmp/debug
 
   # Frontend Service
   frontend:
@@ -46,7 +51,7 @@ services:
       dockerfile: Dockerfile
     container_name: CVitae-frontend
     environment:
-      - VITE_API_URL=auto
+      - NODE_ENV=development
     ports:
       - "3000:3000"
     depends_on:
@@ -66,6 +71,7 @@ services:
       - cvitae-network
     volumes:
       - latex_temp:/tmp
+      - latex_debug:/tmp/debug
 
   # NGINX Reverse Proxy
   nginx:
@@ -90,4 +96,6 @@ networks:
 volumes:
   postgres_data:
   backend_logs:
+  backend_debug:
   latex_temp:
+  latex_debug:

@@ -21,6 +21,11 @@ import java.util.UUID;
 // CORS handled globally in CorsConfig.java
 public class ExportController {
 
+    // Add logging to admin system
+    private void addAdminLog(String message) {
+        com.cvitae.controller.AdminController.addLog("ExportController: " + message);
+    }
+
     private final ExportService exportService;
 
     @PostMapping("/latex")
@@ -37,13 +42,16 @@ public class ExportController {
     @PostMapping("/pdf")
     public ResponseEntity<Resource> exportPdf(@Valid @RequestBody ExportRequest request) {
         log.info("Exporting resume to PDF format");
+        addAdminLog("PDF export started for resume: " + request.getResumeId());
         Resource pdfResource = exportService.generatePdf(request);
         
         // Validate that the PDF was generated correctly
         if (!exportService.validateExportedFile(pdfResource, "pdf")) {
+            addAdminLog("❌ PDF validation failed for resume: " + request.getResumeId());
             throw new RuntimeException("Generated PDF file is invalid or empty");
         }
         
+        addAdminLog("✅ PDF export completed successfully for resume: " + request.getResumeId());
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"resume.pdf\"")
@@ -136,5 +144,19 @@ public class ExportController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"export.pdf\"")
                 .body(resource);
+    }
+    
+    @GetMapping("/debug/{sessionId}")
+    public ResponseEntity<Map<String, Object>> getDebugInfo(@PathVariable String sessionId) {
+        log.info("Getting debug information for session: {}", sessionId);
+        
+        try {
+            Map<String, Object> debugInfo = exportService.getDebugInfo(sessionId);
+            return ResponseEntity.ok(debugInfo);
+        } catch (Exception e) {
+            log.error("Failed to get debug info for session {}: {}", sessionId, e.getMessage());
+            return ResponseEntity.status(404)
+                    .body(Map.of("error", "Debug session not found: " + sessionId));
+        }
     }
 }

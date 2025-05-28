@@ -5,6 +5,7 @@ import { Download, FileText, Image, Copy, CheckCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { ResumeApiService, ResumeResponse } from "../services/resumeApi";
 import { ExportApiService } from "../services/exportApi";
+import LatexErrorDisplay from "../components/LatexErrorDisplay";
 
 const ExportPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +14,8 @@ const ExportPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [latexCode, setLatexCode] = useState("");
   const [resumeData, setResumeData] = useState<ResumeResponse | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [debugSession, setDebugSession] = useState<string | null>(null);
 
   // Fetch resume data on component mount
   useEffect(() => {
@@ -79,6 +82,10 @@ const ExportPage: React.FC = () => {
       return;
     }
 
+    // Clear previous errors
+    setExportError(null);
+    setDebugSession(null);
+
     setIsExporting(true);
     try {
       const exportRequest = {
@@ -134,11 +141,30 @@ const ExportPage: React.FC = () => {
       }
     } catch (error) {
       console.error("Export error:", error);
-      toast.error(
-        `Export failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+
+      // Extract debug session from error message if available
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Debug Session:")) {
+        const match = errorMessage.match(/Debug Session:\s*([^\s\n]+)/);
+        if (match) {
+          setDebugSession(match[1]);
+        }
+      }
+
+      // Show detailed error for LaTeX compilation issues
+      if (errorMessage.includes("LATEX COMPILATION ERROR")) {
+        setExportError(errorMessage);
+        console.error(
+          "🔥 LaTeX Compilation Failed - Showing detailed error display"
+        );
+      } else {
+        toast.error(
+          `Export failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      }
     } finally {
       setIsExporting(false);
     }
@@ -197,6 +223,26 @@ const ExportPage: React.FC = () => {
             </p>
           </motion.div>
         </div>
+
+        {/* LaTeX Error Display */}
+        {exportError && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            <LatexErrorDisplay
+              error={exportError}
+              debugSession={debugSession}
+              onRetry={() => {
+                setExportError(null);
+                setDebugSession(null);
+                handleExport(activeFormat);
+              }}
+            />
+          </motion.div>
+        )}
 
         {/* Resume Info */}
         <motion.div
