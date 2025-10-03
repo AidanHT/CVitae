@@ -36,6 +36,21 @@ class LaTeXCompiler:
         try:
             logger.info(f"Starting LaTeX compilation for {output_name}")
             
+            # Pre-validate LaTeX content
+            if not latex_content or not latex_content.strip():
+                raise Exception("Empty LaTeX content provided")
+            
+            # Basic LaTeX validation
+            if "\\documentclass" not in latex_content:
+                raise Exception("LaTeX content missing \\documentclass declaration")
+            
+            if "\\begin{document}" not in latex_content:
+                raise Exception("LaTeX content missing \\begin{document}")
+            
+            if "\\end{document}" not in latex_content:
+                logger.warning("LaTeX content missing \\end{document}, attempting to add")
+                latex_content = latex_content.rstrip() + "\n\\end{document}"
+            
             # Create temporary directory for this compilation
             work_dir = self.temp_dir / f"{output_name}_{os.getpid()}"
             work_dir.mkdir(exist_ok=True)
@@ -46,8 +61,9 @@ class LaTeXCompiler:
             with open(tex_file, 'w', encoding='utf-8') as f:
                 f.write(latex_content)
             logger.debug(f"Written LaTeX content to: {tex_file}")
+            logger.debug(f"LaTeX content preview: {latex_content[:300]}...")
             
-            # Compile LaTeX to PDF using latexmk for better error handling
+            # First attempt: Use latexmk for compilation
             cmd = [
                 'latexmk',
                 '-pdf',
@@ -68,7 +84,12 @@ class LaTeXCompiler:
                 logger.debug(f"latexmk stderr: {result.stderr}")
             
             if result.returncode != 0:
-                # Try to get more detailed error from log file
+                # Try alternative compilation method
+                logger.warning("latexmk failed, trying direct pdflatex compilation")
+                result = self.try_direct_pdflatex(tex_file, work_dir)
+            
+            if result.returncode != 0:
+                # Get detailed error information
                 log_file = work_dir / f"{output_name}.log"
                 log_content = ""
                 if log_file.exists():
@@ -84,7 +105,7 @@ class LaTeXCompiler:
                 
                 error_msg = f"LaTeX compilation failed (return code: {result.returncode})\nSTDERR: {result.stderr}\nSTDOUT: {result.stdout}"
                 if log_content:
-                    error_msg += f"\nLOG: {log_content[-1000:]}"  # Last 1000 chars
+                    error_msg += f"\nLOG: {log_content[-2000:]}"  # Last 2000 chars
                 
                 # Add parsed error analysis
                 if parsed_errors:
@@ -112,7 +133,7 @@ class LaTeXCompiler:
             logger.error(f"Error compiling LaTeX: {str(e)}")
             # Don't cleanup on error so we can debug
             raise
-    
+
     def pdf_to_image(self, pdf_path: str, output_format: str = "png", dpi: int = 300) -> str:
         """Convert PDF to image format"""
         try:
@@ -213,6 +234,36 @@ class LaTeXCompiler:
             shutil.rmtree(work_dir)
         except Exception as e:
             logger.warning(f"Failed to cleanup {work_dir}: {str(e)}")
+
+    def try_direct_pdflatex(self, tex_file: Path, work_dir: Path) -> subprocess.CompletedProcess:
+        """Try direct pdflatex compilation as fallback"""
+        try:
+            # Run pdflatex multiple times to resolve references
+            for i in range(3):
+                cmd = [
+                    'pdflatex',
+                    '-interaction=nonstopmode',
+                    '-halt-on-error',
+                    '-file-line-error',
+                    '-output-directory=' + str(work_dir),
+                    str(tex_file)
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
+                
+                if result.returncode == 0:
+                    logger.info(f"Direct pdflatex succeeded on attempt {i+1}")
+                    return result
+                
+                if i == 0:  # Only log first attempt details
+                    logger.debug(f"pdflatex attempt {i+1} failed with code {result.returncode}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Direct pdflatex compilation failed: {e}")
+            # Return a failed result
+            return subprocess.CompletedProcess([], 1, "", str(e))
 
 # Initialize compiler
 compiler = LaTeXCompiler()

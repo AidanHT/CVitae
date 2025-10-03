@@ -24,6 +24,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.cvitae.ai.GroqRequest;
+import com.cvitae.ai.GroqResponse;
+import com.cvitae.ai.GroqClient;
+import com.cvitae.service.LatexTemplateService;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,6 +36,8 @@ public class ExportServiceImpl implements ExportService {
 
     private final ResumeRepository resumeRepository;
     private final WebClient webClient;
+    private final GroqClient groqClient;
+    private final LatexTemplateService latexTemplateService;
 
     @Value("${latex.service.url:http://localhost:8082}")
     private String latexServiceUrl;
@@ -74,19 +81,44 @@ public class ExportServiceImpl implements ExportService {
 
         String latexCode = resume.getLatexCode();
         
-        // Force regeneration if stored LaTeX code contains malformed content
-        if (latexCode != null && isLatexMalformed(latexCode)) {
-            log.warn("Stored LaTeX code contains malformed content, regenerating for resume: {}", request.getResumeId());
-            latexCode = null; // Force regeneration
+        // Enhanced LaTeX processing and validation
+        if (latexCode != null && !latexCode.trim().isEmpty()) {
+            log.info("Found stored LaTeX code, length: {} characters", latexCode.length());
+            
+            // Try to clean and fix the LaTeX code before rejecting it
+            String cleanedLatex = cleanAndValidateLatex(latexCode);
+            if (cleanedLatex != null) {
+                log.info("Using cleaned stored LaTeX code");
+                return cleanedLatex;
+            }
+            
+            // If cleaning failed, check if it's truly malformed
+            if (isLatexMalformed(latexCode)) {
+                log.warn("Stored LaTeX code contains malformed content, regenerating for resume: {}", request.getResumeId());
+                latexCode = null; // Force regeneration
+            } else {
+                log.info("Using stored LaTeX code as-is");
+                return latexCode;
+            }
         }
         
-        // If no LaTeX code exists or needs regeneration, generate fallback template
-        if (latexCode == null || latexCode.trim().isEmpty()) {
-            log.warn("No valid LaTeX code found for resume: {}, using fallback template", request.getResumeId());
-            latexCode = generateFallbackLatexTemplate(resume);
+        // Try to regenerate LaTeX from tailored resume content
+        if (resume.getTailoredResume() != null && !resume.getTailoredResume().trim().isEmpty()) {
+            log.info("Attempting to generate LaTeX from tailored resume content");
+            try {
+                String regeneratedLatex = regenerateLatexFromContent(resume.getTailoredResume(), resume);
+                if (regeneratedLatex != null) {
+                    log.info("Successfully regenerated LaTeX from content");
+                    return regeneratedLatex;
+                }
+            } catch (Exception e) {
+                log.warn("Failed to regenerate LaTeX from content: {}", e.getMessage());
+            }
         }
-
-        return latexCode;
+        
+        // Final fallback to template
+        log.warn("No valid LaTeX code found for resume: {}, using fallback template", request.getResumeId());
+        return generateFallbackLatexTemplate(resume);
     }
 
     @Override
@@ -392,215 +424,79 @@ public class ExportServiceImpl implements ExportService {
     }
 
     /**
-     * Generate a comprehensive LaTeX template with all Jake's macros properly defined
-     * This serves as both fallback and the static template for macro definitions
+     * Generate a fallback LaTeX template using centralized LatexTemplateService
      */
     private String generateFallbackLatexTemplate(Resume resume) {
         log.info("Generating fallback LaTeX template for resume: {}", resume.getId());
         
-        // Use basic information from the resume if available
         String jobTitle = resume.getJobTitle() != null ? resume.getJobTitle() : "Professional";
         String companyName = resume.getCompanyName() != null ? resume.getCompanyName() : "Target Company";
         
-        return getStaticLatexTemplate().replace("%__BODY__", generateSampleResumeBody(jobTitle, companyName));
+        return latexTemplateService.wrapInTemplate(
+            latexTemplateService.generateSampleBody(jobTitle, companyName)
+        );
     }
     
     /**
-     * Static LaTeX template with all macro definitions
-     * This ensures consistency and prevents "undefined control sequence" errors
+     * Get the static LaTeX template from centralized service
      */
     private String getStaticLatexTemplate() {
-        return """
-            \\documentclass[letterpaper,11pt]{article}
-            
-            %% Core packages for professional resume (ATS-friendly)
-            \\usepackage{latexsym}
-            \\usepackage[empty]{fullpage}
-            \\usepackage{titlesec}
-            \\usepackage{marvosym}
-            \\usepackage[usenames,dvipsnames]{color}
-            \\usepackage{enumitem}
-            \\usepackage[hidelinks]{hyperref}
-            \\usepackage{fancyhdr}
-            \\usepackage[english]{babel}
-            \\usepackage{tabularx}
-            \\usepackage[utf8]{inputenc}
-            \\usepackage[T1]{fontenc}
-            \\usepackage{lmodern}
-            \\input{glyphtounicode}
-            
-            %% Page formatting and margins
-            \\pagestyle{fancy}
-            \\fancyhf{}
-            \\fancyfoot{}
-            \\renewcommand{\\headrulewidth}{0pt}
-            \\renewcommand{\\footrulewidth}{0pt}
-            \\setlength{\\headheight}{14pt}  % Fix fancyhdr warning
-            \\addtolength{\\oddsidemargin}{-0.5in}
-            \\addtolength{\\evensidemargin}{-0.5in}
-            \\addtolength{\\textwidth}{1in}
-            \\addtolength{\\topmargin}{-.5in}
-            \\addtolength{\\textheight}{1.0in}
-            \\urlstyle{same}
-            \\raggedbottom
-            \\raggedright
-            \\setlength{\\tabcolsep}{0in}
-            \\setlength{\\parindent}{0pt}
-            
-            %% Section title formatting
-            \\titleformat{\\section}{
-              \\vspace{-4pt}\\scshape\\raggedright\\large
-            }{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]
-            
-            %% PDF settings for ATS compatibility
-            \\pdfgentounicode=1
-            
-            %% ========== JAKE'S RESUME TEMPLATE MACROS ==========
-            %% These macros define the structure and formatting for resume elements
-            
-            %% Basic item with proper spacing
-            \\newcommand{\\resumeItem}[1]{
-              \\item\\small{
-                {#1 \\vspace{-2pt}}
-              }
-            }
-            
-            %% Four-argument subheading for positions/education
-            \\newcommand{\\resumeSubheading}[4]{
-              \\vspace{-2pt}\\item
-                \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
-                  \\textbf{#1} & #2 \\\\
-                  \\textit{\\small#3} & \\textit{\\small #4} \\\\
-                \\end{tabular*}\\vspace{-7pt}
-            }
-            
-            %% Education-specific subheading with proper formatting
-            \\newcommand{\\resumeSubheadingEducation}[4]{
-              \\vspace{-2pt}\\item
-                \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
-                  \\textbf{#1} & #2 \\\\
-                  \\textit{\\small#3} & \\textit{\\small #4} \\\\
-                \\end{tabular*}\\vspace{-7pt}
-            }
-            
-            %% Two-argument project heading
-            \\newcommand{\\resumeProjectHeading}[2]{
-              \\item
-                \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
-                  \\small#1 & #2 \\\\
-                \\end{tabular*}\\vspace{-7pt}
-            }
-            
-            %% Alternative subheading styles for flexibility
-            \\newcommand{\\resumeSubSubheading}[2]{
-              \\item
-                \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
-                  \\textit{\\small#1} & \\textit{\\small #2} \\\\
-                \\end{tabular*}\\vspace{-7pt}
-            }
-            
-            %% List environment commands
-            \\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
-            \\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
-            \\newcommand{\\resumeItemListStart}{\\begin{itemize}}
-            \\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
-            
-            %% Custom bullet for nested lists
-            \\renewcommand\\labelitemii{$\\vcenter{\\hbox{\\tiny$\\bullet$}}$}
-            
-            %% Skills section helper
-            \\newcommand{\\resumeSkillItem}[2]{
-              \\item{\\textbf{#1:} #2}
-            }
-            
-            %% Additional macros for common resume elements
-            \\newcommand{\\resumeAward}[2]{
-              \\item \\textbf{#1} \\hfill #2
-            }
-            
-            \\newcommand{\\resumeCertification}[2]{
-              \\item #1 \\hfill \\textit{#2}
-            }
-            
-            %% Legacy macro for compatibility
-            \\newcommand{\\resumeSubItem}[1]{\\resumeItem{#1}\\vspace{-4pt}}
-            
-            %% Safe text escaping helpers (backup macros)
-            \\newcommand{\\safeampersand}{\\&}
-            \\newcommand{\\safedollar}{\\$}
-            \\newcommand{\\safepercent}{\\%}
-            \\newcommand{\\safeunderscore}{\\_}
-            
-            %% ========== DOCUMENT CONTENT ==========
-            \\begin{document}
-            
-            %__BODY__
-            
-            \\end{document}
-            """;
+        return latexTemplateService.getJakesTemplate();
     }
     
     /**
-     * Generate sample resume body content for fallback template
+     * Clean and validate LaTeX code, attempting to fix common issues
      */
-    private String generateSampleResumeBody(String jobTitle, String companyName) {
-        return String.format("""
-            %% HEADER SECTION
-            \\begin{center}
-                {\\textbf{\\Huge \\scshape Professional Resume}} \\\\ \\vspace{1pt}
-                \\small Phone \\;|\\; \\href{mailto:email@example.com}{\\underline{email@example.com}} \\;|\\;
-                \\href{https://linkedin.com/in/profile}{\\underline{linkedin.com/in/profile}} \\;|\\;
-                \\href{https://github.com/username}{\\underline{github.com/username}}
-            \\end{center}
-            
-            %% EDUCATION SECTION
-            \\section{EDUCATION}
-            \\resumeSubHeadingListStart
-                \\resumeSubheading
-                    {Bachelor of Science in Computer Science}{Expected May 2024}
-                    {University Name}{City, State}
-            \\resumeSubHeadingListEnd
-            
-            %% SKILLS SECTION
-            \\section{TECHNICAL SKILLS}
-            \\begin{itemize}[leftmargin=0.15in, label={}]
-                \\small
-                \\resumeSkillItem{Programming Languages}{Java, Python, JavaScript, TypeScript, SQL}
-                \\resumeSkillItem{Frameworks \\& Libraries}{React, Node.js, Spring Boot, FastAPI}
-                \\resumeSkillItem{Developer Tools}{Git, Docker, AWS, MongoDB, PostgreSQL}
-                \\resumeSkillItem{Operating Systems}{Linux, macOS, Windows}
-            \\end{itemize}
-            
-            %% EXPERIENCE SECTION
-            \\section{EXPERIENCE}
-            \\resumeSubHeadingListStart
-                \\resumeSubheading
-                    {%s}{January 2024 -- Present}
-                    {%s}{City, State}
-                \\resumeItemListStart
-                    \\resumeItem{Developed and maintained enterprise applications using modern frameworks}
-                    \\resumeItem{Collaborated with cross-functional teams to deliver high-quality software solutions}
-                    \\resumeItem{Implemented best practices for code quality and performance optimization}
-                    \\resumeItem{Reduced system response time by 40\\%% through database optimization}
-                \\resumeItemListEnd
-            \\resumeSubHeadingListEnd
-            
-            %% PROJECTS SECTION
-            \\section{PROJECTS}
-            \\resumeSubHeadingListStart
-                \\resumeProjectHeading
-                    {\\textbf{Professional Project} \\;|\\; \\emph{Java, Spring Boot, React, PostgreSQL}}{2024}
-                \\resumeItemListStart
-                    \\resumeItem{Built a full-stack web application with modern technologies}
-                    \\resumeItem{Implemented secure authentication and authorization systems}
-                    \\resumeItem{Achieved 99.9\\%% uptime through robust error handling and monitoring}
-                \\resumeItemListEnd
-            \\resumeSubHeadingListEnd
-            """, jobTitle, companyName);
+    private String cleanAndValidateLatex(String latexCode) {
+        if (latexCode == null || latexCode.trim().isEmpty()) {
+            return null;
+        }
+        
+        String cleaned = latexCode.trim();
+        
+        // Remove common AI response patterns while preserving LaTeX
+        String[] patterns = {
+            "Here's the LaTeX code:", "Here is the LaTeX code:",
+            "```latex", "```", "\\`\\`\\`latex", "\\`\\`\\`"
+        };
+        
+        for (String pattern : patterns) {
+            cleaned = cleaned.replace(pattern, "");
+        }
+        
+        // Extract LaTeX content if wrapped
+        if (cleaned.contains("%__BEGIN_LATEX__") && cleaned.contains("%__END_LATEX__")) {
+            int start = cleaned.indexOf("%__BEGIN_LATEX__") + "%__BEGIN_LATEX__".length();
+            int end = cleaned.indexOf("%__END_LATEX__");
+            if (end > start) {
+                cleaned = cleaned.substring(start, end).trim();
+            }
+        }
+        
+        // Ensure document structure
+        if (!cleaned.contains("\\documentclass")) {
+            log.debug("LaTeX missing documentclass, cannot clean");
+            return null;
+        }
+        
+        if (!cleaned.contains("\\begin{document}")) {
+            log.debug("LaTeX missing begin document, cannot clean");
+            return null;
+        }
+        
+        if (!cleaned.contains("\\end{document}")) {
+            log.debug("LaTeX missing end document, attempting to add");
+            if (!cleaned.endsWith("\\end{document}")) {
+                cleaned += "\n\\end{document}";
+            }
+        }
+        
+        log.debug("Successfully cleaned LaTeX code");
+        return cleaned;
     }
-    
+
     /**
-     * Check if LaTeX code is malformed and needs regeneration
+     * Improved LaTeX malformed detection - less aggressive
      */
     private boolean isLatexMalformed(String latexCode) {
         if (latexCode == null || latexCode.trim().isEmpty()) {
@@ -609,41 +505,76 @@ public class ExportServiceImpl implements ExportService {
 
         String trimmed = latexCode.trim();
         
-        // Check for common AI response patterns that indicate malformed LaTeX
-        String[] malformedPatterns = {
-            "Here is", "Here's", "Here are",
-            "```latex", "```", 
-            "LaTeX code for", "LaTeX document",
-            "I'll", "I've", "Let me",
-            "This LaTeX", "The LaTeX",
-            "Following is", "Below is"
+        // Only check for obvious non-LaTeX content - be less aggressive
+        String[] criticalMalformedPatterns = {
+            "I'm sorry", "I cannot", "I'm unable to", "I can't",
+            "Error:", "ERROR:", "Failed to", "Unable to process",
+            "```json", "```html", "```css", "```javascript"
         };
         
-        for (String pattern : malformedPatterns) {
+        for (String pattern : criticalMalformedPatterns) {
             if (trimmed.contains(pattern)) {
-                log.debug("Found malformed pattern '{}' in LaTeX code", pattern);
+                log.debug("Found critical malformed pattern '{}' in LaTeX code", pattern);
                 return true;
             }
         }
         
-        // Check that it starts and ends properly
-        if (!trimmed.startsWith("\\documentclass")) {
-            log.debug("LaTeX code doesn't start with \\documentclass");
+        // Essential structure checks
+        if (!trimmed.contains("\\documentclass")) {
+            log.debug("LaTeX code doesn't contain \\documentclass");
             return true;
         }
         
-        if (!trimmed.endsWith("\\end{document}")) {
-            log.debug("LaTeX code doesn't end with \\end{document}");
+        if (!trimmed.contains("\\begin{document}")) {
+            log.debug("LaTeX code doesn't contain \\begin{document}");
             return true;
         }
         
-        // Check for markdown code block artifacts
-        if (trimmed.contains("```")) {
-            log.debug("LaTeX code contains markdown artifacts");
-            return true;
-        }
+        // Allow missing \end{document} as it can be added
         
         return false;
+    }
+
+    /**
+     * Regenerate LaTeX from tailored resume content
+     */
+    private String regenerateLatexFromContent(String content, Resume resume) {
+        try {
+            // Create a simple conversion request
+            GroqRequest latexRequest = GroqRequest.builder()
+                .systemPrompt("""
+                    Convert the following resume content to Jake's LaTeX template format.
+                    
+                    CRITICAL REQUIREMENTS:
+                    - Start with %__BEGIN_LATEX__
+                    - Use \\documentclass[letterpaper,11pt]{article}
+                    - Include all necessary packages
+                    - End with \\end{document}
+                    - Close with %__END_LATEX__
+                    - Use Jake's resume macros properly
+                    """)
+                .userPrompt("Resume Content to Convert:\n" + content)
+                .maxTokens(4000)
+                .temperature(0.2)
+                .build();
+                
+            GroqResponse response = groqClient.callGroqAPI(latexRequest);
+            
+            if (response.isSuccess()) {
+                String latexCode = response.getContent();
+                String cleaned = cleanAndValidateLatex(latexCode);
+                if (cleaned != null && !isLatexMalformed(cleaned)) {
+                    return cleaned;
+                }
+            }
+            
+            log.warn("Failed to regenerate LaTeX via AI, falling back to template");
+            return null;
+            
+        } catch (Exception e) {
+            log.error("Error in LaTeX regeneration: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**

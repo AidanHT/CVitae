@@ -13,7 +13,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Runtime stage
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Install system dependencies
@@ -21,9 +21,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
-RUN groupadd -g 1000 appuser && \
-    useradd -r -u 1000 -g appuser appuser
+# Create non-root user for security (use existing group if GID exists)
+RUN groupadd -g 1001 appuser || true && \
+    useradd -r -u 1001 -g 1001 appuser || useradd -r appuser
 
 # Copy built application
 COPY --from=build /app/target/*.jar app.jar

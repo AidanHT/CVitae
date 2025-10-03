@@ -70,7 +70,7 @@ public class AdminController {
         
         try {
             // Overall health
-            Map<String, Object> health = healthService.getApplicationHealth();
+            Map<String, Object> health = healthService.getHealthStatus();
             status.put("health", health);
         } catch (Exception e) {
             log.warn("Failed to get health status: {}", e.getMessage());

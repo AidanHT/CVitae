@@ -2,6 +2,8 @@ package com.cvitae.ai;
 
 import com.cvitae.dto.GenerateResumeRequest;
 import com.cvitae.dto.JobAnalysisResponse;
+import com.cvitae.dto.ResumeData;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -10,9 +12,15 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.cvitae.service.LatexTemplateService;
+import com.cvitae.service.LatexResumeBuilder;
+
 /**
  * Service for orchestrating AI-powered resume tailoring workflow
  * Handles job analysis, content optimization, and LaTeX generation
+ * 
+ * NEW APPROACH: Uses structured data extraction + programmatic template filling
+ * to ensure perfect LaTeX output every time.
  */
 @Service
 @RequiredArgsConstructor
@@ -20,6 +28,9 @@ import java.util.regex.Pattern;
 public class ResumeTailorService {
 
     private final GroqClient groqClient;
+    private final LatexTemplateService latexTemplateService;
+    private final LatexResumeBuilder latexResumeBuilder;
+    private final ObjectMapper objectMapper;
 
     /**
      * Complete resume tailoring workflow:
@@ -102,18 +113,132 @@ public class ResumeTailorService {
     }
 
     /**
-     * Convert tailored content to Jake's LaTeX format
+     * Convert tailored content to Jake's LaTeX format using the NEW structured approach:
+     * 1. Extract resume data as JSON using AI
+     * 2. Programmatically build LaTeX from structured data
+     * 
+     * This ensures perfect LaTeX syntax every time.
      */
     public String convertToLatex(String resumeContent, GenerateResumeRequest request) {
-        log.info("Converting resume to LaTeX format");
+        log.info("=== CONVERT TO LATEX (STRUCTURED APPROACH) ===");
+        log.info("Converting resume to LaTeX format using extraction + builder");
+        log.info("Resume content length: {}", resumeContent != null ? resumeContent.length() : "null");
+        log.info("Target length: {}", request.getTargetLength());
 
+        try {
+            // Step 1: Extract structured data from resume using AI
+            ResumeData resumeData = extractResumeData(resumeContent, request);
+            
+            if (resumeData != null) {
+                log.info("Successfully extracted resume data, building LaTeX");
+                
+                // Step 2: Build LaTeX programmatically from structured data
+                String latexCode = latexResumeBuilder.buildResume(resumeData);
+                log.info("LaTeX built successfully, length: {}", latexCode.length());
+                
+                return latexCode;
+            } else {
+                log.warn("Resume data extraction returned null, falling back to old method");
+                return convertToLatexLegacy(resumeContent, request);
+            }
+            
+        } catch (Exception e) {
+            log.error("Error in structured LaTeX conversion: {}", e.getMessage(), e);
+            log.warn("Falling back to legacy conversion method");
+            return convertToLatexLegacy(resumeContent, request);
+        }
+    }
+    
+    /**
+     * Extract structured resume data from raw text using AI.
+     * The AI outputs JSON which is then parsed into ResumeData.
+     */
+    private ResumeData extractResumeData(String resumeContent, GenerateResumeRequest request) {
+        log.info("Extracting structured resume data using AI");
+        
+        try {
+            // Create extraction request
+            GroqRequest extractionRequest = GroqRequest.forResumeExtraction(
+                resumeContent,
+                request.getJobPosting(),
+                request.getJobTitle(),
+                request.getCompanyName()
+            );
+            
+            // Call AI to extract data
+            GroqResponse response = groqClient.callGroqAPI(extractionRequest);
+            
+            if (!response.isSuccess()) {
+                log.error("AI extraction failed: {}", response.getErrorMessage());
+                return null;
+            }
+            
+            String jsonContent = response.getContent();
+            log.debug("AI extraction response: {}", jsonContent);
+            
+            // Clean up the JSON response (remove any markdown formatting)
+            jsonContent = cleanJsonResponse(jsonContent);
+            
+            // Parse JSON into ResumeData
+            ResumeData data = objectMapper.readValue(jsonContent, ResumeData.class);
+            log.info("Successfully parsed resume data: name={}, education={}, experience={}, projects={}",
+                    data.getName(),
+                    data.getEducation() != null ? data.getEducation().size() : 0,
+                    data.getExperience() != null ? data.getExperience().size() : 0,
+                    data.getProjects() != null ? data.getProjects().size() : 0);
+            
+            return data;
+            
+        } catch (Exception e) {
+            log.error("Error extracting resume data: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * Clean JSON response from AI (remove markdown code blocks, etc.)
+     */
+    private String cleanJsonResponse(String jsonContent) {
+        if (jsonContent == null) return null;
+        
+        String cleaned = jsonContent.trim();
+        
+        // Remove markdown code blocks
+        if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.substring(7);
+        } else if (cleaned.startsWith("```")) {
+            cleaned = cleaned.substring(3);
+        }
+        
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        }
+        
+        // Find the JSON object boundaries
+        int startBrace = cleaned.indexOf('{');
+        int endBrace = cleaned.lastIndexOf('}');
+        
+        if (startBrace != -1 && endBrace != -1 && endBrace > startBrace) {
+            cleaned = cleaned.substring(startBrace, endBrace + 1);
+        }
+        
+        return cleaned.trim();
+    }
+    
+    /**
+     * Legacy conversion method - used as fallback when structured approach fails
+     */
+    private String convertToLatexLegacy(String resumeContent, GenerateResumeRequest request) {
+        log.info("Using legacy LaTeX conversion method");
+        
         GroqRequest groqRequest = GroqRequest.forLatexConversion(resumeContent, String.valueOf(request.getTargetLength()));
         GroqResponse response = groqClient.callGroqAPI(groqRequest);
 
         if (response.isSuccess()) {
+            log.info("Legacy LaTeX conversion successful");
             return response.getContent();
         } else {
-            log.warn("LaTeX conversion failed, using template: {}", response.getErrorMessage());
+            log.error("Legacy LaTeX conversion failed: {}", response.getErrorMessage());
             return generateLatexTemplate(resumeContent, request);
         }
     }
@@ -381,41 +506,31 @@ public class ResumeTailorService {
     }
 
     /**
-     * Generate LaTeX template when AI conversion fails
+     * Generate LaTeX template using centralized LatexTemplateService when AI conversion fails
      */
     private String generateLatexTemplate(String resumeContent, GenerateResumeRequest request) {
-        return String.format("""
-            \\documentclass[letterpaper,11pt]{article}
+        log.warn("Using fallback LaTeX template for target length: {} page(s)", request.getTargetLength());
+        
+        // Escape special characters and wrap in template
+        String escapedContent = latexTemplateService.escapeLatex(resumeContent);
+        
+        String fallbackBody = String.format("""
+            %% Target length: %d page(s)
+            %% AI service unavailable - using escaped content
             
-            \\usepackage{latexsym}
-            \\usepackage[empty]{fullpage}
-            \\usepackage{titlesec}
-            \\usepackage{marvosym}
-            \\usepackage[usenames,dvipsnames]{color}
-            \\usepackage{verbatim}
-            \\usepackage{enumitem}
-            \\usepackage[hidelinks]{hyperref}
-            \\usepackage{fancyhdr}
-            \\usepackage[english]{babel}
-            \\usepackage{tabularx}
-            
-            \\begin{document}
-            
-            %% Header section - customize with your information
             \\begin{center}
-                \\textbf{\\Huge \\scshape [Your Name]} \\\\ \\vspace{1pt}
-                \\small [Phone] $|$ \\href{mailto:[email]}{\\underline{[email]}} $|$ 
-                \\href{[linkedin]}{\\underline{[linkedin]}} $|$ \\href{[github]}{\\underline{[github]}}
+                \\textbf{\\huge Resume Content}\\\\
+                \\vspace{5pt}
+                \\textit{Please regenerate for proper formatting}
             \\end{center}
             
-            %% Resume content
-            %% Target length: %d page(s)
-            %% Content sections based on your preferences
+            \\section{CONTENT}
+            \\begin{itemize}[leftmargin=0.15in, label={}]
+                \\item %s
+            \\end{itemize}
+            """, request.getTargetLength(), escapedContent);
             
-            %s
-            
-            \\end{document}
-            """, request.getTargetLength(), resumeContent);
+        return latexTemplateService.wrapInTemplate(fallbackBody);
     }
 
     /**

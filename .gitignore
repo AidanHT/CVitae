@@ -49,6 +49,9 @@ build/
 ### VS Code ###
 .vscode/
 
+### Cursor ###
+.cursor/
+
 #########################################
 # Node.js / React / TypeScript
 #########################################
@@ -464,6 +467,19 @@ temp/
 # CVitae Specific
 #########################################
 
+# Debug and test artifacts (DO NOT COMMIT)
+*-output.tex
+*-output.pdf
+generated-*.tex
+generated-*.pdf
+test_*.pdf
+test-*.ps1
+*-diagnosis.ps1
+debug-*.tex
+debug-*.pdf
+AI_GENERATED_*.pdf
+direct_export_*.pdf
+
 # Generated resumes and exports
 exports/
 generated-resumes/
@@ -510,3 +526,6 @@ coverage/
 # Local configuration overrides
 local.properties
 config.local.json
+
+# GitHub workflows and templates (if you want to exclude them)
+.github/

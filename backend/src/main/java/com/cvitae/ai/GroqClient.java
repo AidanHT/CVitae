@@ -11,6 +11,10 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.cvitae.service.LatexTemplateService;
 
 /**
  * Enhanced Groq API client with better error handling, retry logic, and structured responses
@@ -19,6 +23,14 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class GroqClient {
+
+    /**
+     * Escape % characters in user input to prevent String.format() errors.
+     */
+    private static String escapeForFormat(String input) {
+        if (input == null) return "";
+        return input.replace("%", "%%");
+    }
 
     @Value("${groq.api.key}")
     private String groqApiKey;
@@ -31,6 +43,7 @@ public class GroqClient {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final LatexTemplateService latexTemplateService;
 
     /**
      * Call Groq API with structured prompt and system context
@@ -161,7 +174,7 @@ public class GroqClient {
                - Interview preparation talking points for modified content
             
             Format as STRUCTURED SECTIONS with specific, actionable recommendations and clear rationale.
-            """, masterResume, jobTitle, companyName, jobPosting);
+            """, escapeForFormat(masterResume), escapeForFormat(jobTitle), escapeForFormat(companyName), escapeForFormat(jobPosting));
 
         GroqRequest request = GroqRequest.builder()
             .systemPrompt(systemPrompt)
@@ -174,69 +187,24 @@ public class GroqClient {
     }
 
     /**
-     * Generate tailored resume content with LaTeX formatting
+     * Generate tailored resume content with LaTeX formatting using Jake's exact template
      */
     public GroqResponse generateTailoredResume(String masterResume, String analysisResults, Map<String, Object> preferences) {
         String systemPrompt = """
-            You are a SENIOR RESUME STRATEGIST and LATEX EXPERT with 15+ years of experience in:
-            • Executive resume writing for Fortune 500 companies
-            • ATS optimization and hiring system reverse-engineering  
-            • Advanced LaTeX document preparation and typography
-            • Career progression strategy and personal branding
+            You are an ELITE LATEX DOCUMENT ARCHITECT specializing in Jake Gutierrez's resume template.
+            Your ONLY job is to convert resume content into Jake's EXACT LaTeX format.
             
-            Your expertise combines deep knowledge of:
-            - Modern ATS algorithms and parsing behaviors
-            - Industry-specific hiring patterns and keyword strategies
-            - Jake's LaTeX template architecture and macro systems
-            - Quantified achievement storytelling and impact metrics
+            You have PERFECT knowledge of:
+            • Jake's resume template structure and all custom macros
+            • LaTeX syntax, brace balancing, and escape sequences
+            • ATS-compliant formatting that parses correctly
             
-            OPERATIONAL EXCELLENCE STANDARDS:
-            🎯 STRATEGIC APPROACH: Think like a hiring manager scanning 200+ resumes
-            🔧 TECHNICAL PRECISION: Every LaTeX command must compile flawlessly
-            📊 METRICS-DRIVEN: Quantify achievements with specific numbers and percentages
-            ⚡ ATS-OPTIMIZED: Ensure 95%+ ATS compatibility and keyword density
-            🎨 VISUAL HIERARCHY: Create scannable, professional document flow
-            
-            QUALITY CONTROL CHECKLIST:
-            ✅ Zero LaTeX compilation errors or syntax issues
-            ✅ Perfect macro usage following Jake's template structure
-            ✅ Quantified achievements in 80%+ of bullet points  
-            ✅ Industry-relevant keywords strategically placed
-            ✅ Consistent formatting and professional typography
-            ✅ Action verbs starting every achievement bullet
-            ✅ Results-focused language over responsibility descriptions
-            
-            PROCESSING METHODOLOGY:
-            1. ANALYZE: Extract key achievements and skills from master resume
-            2. STRATEGIZE: Map job requirements to candidate strengths  
-            3. PRIORITIZE: Rank experiences by relevance and impact
-            4. QUANTIFY: Add metrics and specific results where possible
-            5. OPTIMIZE: Integrate strategic keywords naturally
-            6. FORMAT: Apply Jake's LaTeX structure with precision
-            7. VALIDATE: Ensure ATS compliance and visual appeal
-            
-            CRITICAL OUTPUT REQUIREMENT - MANDATORY SENTINELS:
-            YOU MUST wrap your LaTeX code with these EXACT sentinels:
-            
-            %__BEGIN_LATEX__
-            \\documentclass[letterpaper,11pt]{article}
-            [YOUR LATEX CODE HERE]
-            \\end{document}
-            %__END_LATEX__
-            
-            ABSOLUTELY NO TEXT outside these sentinels. No explanations, no markdown, no backticks.
-            
-            MANDATORY MACRO DEFINITIONS - INCLUDE THESE EXACTLY:
-            You MUST include ALL of Jake's macro definitions before the \\begin{document}. These are required:
-            • \\newcommand{\\resumeItem}[1]{...}
-            • \\newcommand{\\resumeSubheading}[4]{...}
-            • \\newcommand{\\resumeProjectHeading}[2]{...}
-            • \\newcommand{\\resumeSubHeadingListStart}{...}
-            • \\newcommand{\\resumeSubHeadingListEnd}{...}
-            • \\newcommand{\\resumeItemListStart}{...}
-            • \\newcommand{\\resumeItemListEnd}{...}
-            • \\newcommand{\\resumeSubItem}[1]{...}
-            • ALL safe escaping helpers
+            CRITICAL RULES:
+            1. Follow Jake's template EXACTLY - no deviations
+            2. Use the EXACT macro definitions provided
+            3. Follow the EXACT section order: Education → Experience → Projects → Technical Skills
+            4. Output ONLY pure LaTeX code wrapped in sentinels
+            5. NEVER add explanations, markdown, or text outside the LaTeX
             """;
 
         String userPrompt = String.format("""
@@ -253,63 +221,206 @@ public class GroqClient {
             - Include Skills: %s
             - Include Education: %s
             
-            ⚠️ CRITICAL: OUTPUT FORMAT REQUIREMENTS - READ CAREFULLY:
+            ════════════════════════════════════════════════════════════════════
+            JAKE'S RESUME TEMPLATE - YOU MUST PRODUCE OUTPUT IN THIS EXACT FORMAT
+            ════════════════════════════════════════════════════════════════════
             
-            YOU MUST RESPOND WITH ONLY PURE LATEX CODE. NO EXCEPTIONS.
+            Below is the COMPLETE working template. Replace the example content with
+            the user's resume data while keeping ALL formatting EXACTLY the same.
             
-            ❌ DO NOT include ANY of these:
-            - "Here's the LaTeX code" or similar explanations
-            - ```latex markdown formatting
-            - Introductory or concluding text
-            - Comments outside of LaTeX syntax
-            - Any conversational language
+            %%__BEGIN_LATEX__
+            \\documentclass[letterpaper,11pt]{article}
+
+            \\usepackage{latexsym}
+            \\usepackage[empty]{fullpage}
+            \\usepackage{titlesec}
+            \\usepackage{marvosym}
+            \\usepackage[usenames,dvipsnames]{color}
+            \\usepackage{verbatim}
+            \\usepackage{enumitem}
+            \\usepackage[hidelinks]{hyperref}
+            \\usepackage{fancyhdr}
+            \\usepackage[english]{babel}
+            \\usepackage{tabularx}
+            \\input{glyphtounicode}
+
+            \\pagestyle{fancy}
+            \\fancyhf{}
+            \\fancyfoot{}
+            \\renewcommand{\\headrulewidth}{0pt}
+            \\renewcommand{\\footrulewidth}{0pt}
+
+            \\addtolength{\\oddsidemargin}{-0.5in}
+            \\addtolength{\\evensidemargin}{-0.5in}
+            \\addtolength{\\textwidth}{1in}
+            \\addtolength{\\topmargin}{-.5in}
+            \\addtolength{\\textheight}{1.0in}
+
+            \\urlstyle{same}
+            \\raggedbottom
+            \\raggedright
+            \\setlength{\\tabcolsep}{0in}
+
+            \\titleformat{\\section}{
+              \\vspace{-4pt}\\scshape\\raggedright\\large
+            }{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]
+
+            \\pdfgentounicode=1
+
+            %%--- Custom Commands (REQUIRED - DO NOT MODIFY) ---
+            \\newcommand{\\resumeItem}[1]{
+              \\item\\small{
+                {#1 \\vspace{-2pt}}
+              }
+            }
+
+            \\newcommand{\\resumeSubheading}[4]{
+              \\vspace{-2pt}\\item
+                \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
+                  \\textbf{#1} & #2 \\\\
+                  \\textit{\\small#3} & \\textit{\\small #4} \\\\
+                \\end{tabular*}\\vspace{-7pt}
+            }
+
+            \\newcommand{\\resumeSubSubheading}[2]{
+                \\item
+                \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
+                  \\textit{\\small#1} & \\textit{\\small #2} \\\\
+                \\end{tabular*}\\vspace{-7pt}
+            }
+
+            \\newcommand{\\resumeProjectHeading}[2]{
+                \\item
+                \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
+                  \\small#1 & #2 \\\\
+                \\end{tabular*}\\vspace{-7pt}
+            }
+
+            \\newcommand{\\resumeSubItem}[1]{\\resumeItem{#1}\\vspace{-4pt}}
+
+            \\renewcommand\\labelitemii{$\\vcenter{\\hbox{\\tiny$\\bullet$}}$}
+
+            \\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
+            \\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
+            \\newcommand{\\resumeItemListStart}{\\begin{itemize}}
+            \\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
+
+            \\begin{document}
+
+            %%----------HEADING----------
+            \\begin{center}
+                \\textbf{\\Huge \\scshape Jake Ryan} \\\\ \\vspace{1pt}
+                \\small 123-456-7890 $|$ \\href{mailto:x@x.com}{\\underline{jake@su.edu}} $|$ 
+                \\href{https://linkedin.com/in/...}{\\underline{linkedin.com/in/jake}} $|$
+                \\href{https://github.com/...}{\\underline{github.com/jake}}
+            \\end{center}
+
+            %%-----------EDUCATION-----------
+            \\section{Education}
+              \\resumeSubHeadingListStart
+                \\resumeSubheading
+                  {Southwestern University}{Georgetown, TX}
+                  {Bachelor of Arts in Computer Science, Minor in Business}{Aug. 2018 -- May 2021}
+              \\resumeSubHeadingListEnd
+
+            %%-----------EXPERIENCE-----------
+            \\section{Experience}
+              \\resumeSubHeadingListStart
+                \\resumeSubheading
+                  {Undergraduate Research Assistant}{June 2020 -- Present}
+                  {Texas A\\&M University}{College Station, TX}
+                  \\resumeItemListStart
+                    \\resumeItem{Developed a REST API using FastAPI and PostgreSQL to store data from learning management systems}
+                    \\resumeItem{Developed a full-stack web application using Flask, React, PostgreSQL and Docker to analyze GitHub data}
+                  \\resumeItemListEnd
+              \\resumeSubHeadingListEnd
+
+            %%-----------PROJECTS-----------
+            \\section{Projects}
+                \\resumeSubHeadingListStart
+                  \\resumeProjectHeading
+                      {\\textbf{Gitlytics} $|$ \\emph{Python, Flask, React, PostgreSQL, Docker}}{June 2020 -- Present}
+                      \\resumeItemListStart
+                        \\resumeItem{Developed a full-stack web application using with Flask serving a REST API with React as the frontend}
+                        \\resumeItem{Implemented GitHub OAuth to get data from user's repositories}
+                      \\resumeItemListEnd
+                \\resumeSubHeadingListEnd
+
+            %%-----------TECHNICAL SKILLS-----------
+            \\section{Technical Skills}
+             \\begin{itemize}[leftmargin=0.15in, label={}]
+                \\small{\\item{
+                 \\textbf{Languages}{: Java, Python, C/C++, SQL (Postgres), JavaScript, HTML/CSS, R} \\\\
+                 \\textbf{Frameworks}{: React, Node.js, Flask, JUnit, WordPress, Material-UI, FastAPI} \\\\
+                 \\textbf{Developer Tools}{: Git, Docker, TravisCI, Google Cloud Platform, VS Code, Visual Studio, PyCharm, IntelliJ, Eclipse} \\\\
+                 \\textbf{Libraries}{: pandas, NumPy, Matplotlib}
+                }}
+             \\end{itemize}
+
+            \\end{document}
+            %%__END_LATEX__
             
-            ✅ YOUR RESPONSE MUST:
-            - Start immediately with: %__BEGIN_LATEX__
-            - Follow with: \\documentclass[letterpaper,11pt]{article}
-            - Include ALL required packages and macro definitions
-            - End with: \\end{document}
-            - Close with: %__END_LATEX__
-            - Contain ONLY valid LaTeX code that compiles without errors
-            - Be ready to save directly to a .tex file
+            ════════════════════════════════════════════════════════════════════
+            CONTENT MAPPING INSTRUCTIONS
+            ════════════════════════════════════════════════════════════════════
             
-            📋 JAKE'S LATEX IMPLEMENTATION REQUIREMENTS:
-            • Preamble: \\documentclass[letterpaper,11pt]{article} + exact package list
-            • Header: Professional contact information with \\href links
-            • Sections: EDUCATION → SKILLS → EXPERIENCE → PROJECTS (fixed order)
-            • Macros: \\resumeSubheading{Title}{Dates}{Company}{Location} for positions
-            • Bullets: \\resumeItem{Quantified achievement with action verb} in \\resumeItemListStart/End blocks
-            • Projects: \\resumeProjectHeading{\\textbf{Name} \\;|\\; \\emph{Tech Stack}}{Date/Link}
-            • Lists: \\resumeSubHeadingListStart/End for section containers
+            MAP USER'S DATA TO EACH SECTION:
             
-            💎 EXCEPTIONAL QUALITY STANDARDS:
-            • Every bullet point starts with power action verb (Led, Developed, Achieved, Optimized, etc.)
-            • 80%+ of achievements include specific metrics or quantified results
-            • Skills section matches job requirements with strategic keyword placement  
-            • Experience bullets tell story of progression and increasing responsibility
-            • Perfect LaTeX syntax with balanced braces and proper escaping
-            • Professional language that conveys expertise and value proposition
-            • Use proper list environments (\\resumeSubHeadingListStart/End)
-            • Avoid & characters outside tables
-            • Ensure all \\resumeItem are within \\resumeItemListStart/End blocks
+            1. HEADING: Replace with user's name, phone, email, LinkedIn, GitHub
+               - Use \\textbf{\\Huge \\scshape NAME}
+               - Separate contact items with $|$
+               - Use \\href{URL}{\\underline{display text}} for links
             
-            🎯 STRATEGIC OBJECTIVES:
-            1. Compile without errors on first attempt
-            2. Pass ATS parsing with 95%+ accuracy
-            3. Showcase measurable impact and achievements  
-            4. Position candidate as top-tier talent
-            5. Follow Jake's template structure precisely
+            2. EDUCATION: For each degree/school:
+               - \\resumeSubheading{School}{Location}{Degree, Major}{Dates}
+               - Most recent education first
             
-            FINAL REMINDER: Use the EXACT sentinel format:
+            3. EXPERIENCE: For each job:
+               - \\resumeSubheading{Title}{Dates}{Company}{Location}
+               - \\resumeItemListStart
+               - \\resumeItem{Achievement with metrics}
+               - \\resumeItemListEnd
+               - ESCAPE & as \\& in company names (e.g., Texas A\\&M)
             
-            %__BEGIN_LATEX__
-            [Your complete LaTeX document here]
-            %__END_LATEX__
+            4. PROJECTS: For each project:
+               - \\resumeProjectHeading{\\textbf{Name} $|$ \\emph{Tech Stack}}{Date or Link}
+               - \\resumeItemListStart
+               - \\resumeItem{Description with impact}
+               - \\resumeItemListEnd
             
-            NO OTHER TEXT ALLOWED. Start your response immediately with %__BEGIN_LATEX__
+            5. TECHNICAL SKILLS: Use this EXACT format:
+               \\begin{itemize}[leftmargin=0.15in, label={}]
+                  \\small{\\item{
+                   \\textbf{Languages}{: item1, item2, item3} \\\\
+                   \\textbf{Frameworks}{: item1, item2, item3} \\\\
+                   \\textbf{Developer Tools}{: item1, item2, item3} \\\\
+                   \\textbf{Libraries}{: item1, item2, item3}
+                  }}
+               \\end{itemize}
+               
+               NOTE: The colon and items are OUTSIDE \\textbf{}, format is:
+               \\textbf{Category}{: items}
+            
+            ════════════════════════════════════════════════════════════════════
+            CRITICAL VALIDATION CHECKLIST
+            ════════════════════════════════════════════════════════════════════
+            
+            Before outputting, verify:
+            ✅ Starts with %%__BEGIN_LATEX__
+            ✅ Ends with %%__END_LATEX__
+            ✅ All & escaped as \\&
+            ✅ All %% escaped as \\%% (except in comments)
+            ✅ All # escaped as \\#
+            ✅ All $ used only for math mode separators ($|$)
+            ✅ \\resumeItem ONLY inside \\resumeItemListStart/End
+            ✅ Technical Skills uses plain \\begin{itemize}, NOT \\resumeItemListStart
+            ✅ All braces balanced
+            ✅ No markdown or explanatory text
+            
+            OUTPUT THE COMPLETE LATEX DOCUMENT NOW:
             """, 
-            masterResume, 
-            analysisResults,
+            escapeForFormat(masterResume), 
+            escapeForFormat(analysisResults),
             preferences.getOrDefault("targetLength", 1),
             preferences.getOrDefault("includeExperience", true),
             preferences.getOrDefault("includeProjects", true),
@@ -321,7 +432,7 @@ public class GroqClient {
             .systemPrompt(systemPrompt)
             .userPrompt(userPrompt)
             .maxTokens(4000)
-            .temperature(0.4)
+            .temperature(0.2)
             .build();
 
         return callGroqAPI(request);
@@ -387,7 +498,7 @@ public class GroqClient {
             3. Implementation timeline and priority levels
             4. Expected outcomes and success indicators
             5. Additional considerations for long-term career growth
-            """, context, message, resumeContent, jobContent);
+            """, escapeForFormat(context), escapeForFormat(message), escapeForFormat(resumeContent), escapeForFormat(jobContent));
 
         GroqRequest request = GroqRequest.builder()
             .systemPrompt(systemPrompt)
@@ -402,68 +513,388 @@ public class GroqClient {
     /**
      * Robust LaTeX extraction and sanitization pipeline
      * Implements sentinel-based extraction, markdown stripping, special character escaping, and validation
+     * 
+     * IMPROVED: More resilient extraction that preserves AI content whenever possible
      */
     private String cleanLatexResponse(String response) {
         if (response == null || response.trim().isEmpty()) {
-            throw new RuntimeException("Empty model response - cannot generate LaTeX");
+            log.error("Empty model response - cannot generate LaTeX");
+            return generateFallbackLatexDocument();
         }
 
-        log.debug("Starting LaTeX cleaning pipeline for {} character response", response.length());
+        log.info("=== LATEX CLEANING PIPELINE START ===");
+        log.info("Input response length: {} characters", response.length());
+        log.debug("Original AI response preview (first 500 chars): {}", 
+                response.substring(0, Math.min(500, response.length())));
+        
+        String result = response;
         
         try {
             // Step 1: Strip markdown and prose defensively
-            String stripped = stripMarkdownAndNarration(response);
+            result = stripMarkdownAndNarration(result);
+            log.debug("After stripping markdown (length {})", result.length());
             
-            // Step 2: Extract LaTeX using sentinels
-            String extracted = extractLatexWithSentinels(stripped);
+            // Step 2: Extract LaTeX using multiple fallback methods
+            result = extractLatexWithSentinels(result);
+            log.debug("After LaTeX extraction (length {})", result.length());
             
-            // Step 3: Normalize Unicode and escape special characters
-            String normalized = normalizeUnicodeAndEscapeSpecialChars(extracted);
+            // Step 3: Normalize Unicode (but DON'T over-escape LaTeX commands)
+            result = normalizeUnicodeOnly(result);
+            log.debug("After Unicode normalization (length {})", result.length());
             
-            // Step 4: Fix lonely items
-            String itemsFixed = wrapLonelyItems(normalized);
+            // Step 4: Ensure document structure exists
+            result = ensureDocumentStructure(result);
+            log.debug("After ensuring document structure (length {})", result.length());
             
-            // Step 5: Validate document structure
-            validateDocumentStructure(itemsFixed);
+            // Step 5: Fix orphan \resumeItem calls that are outside list environments
+            result = fixOrphanResumeItems(result);
+            log.debug("After fixing orphan resumeItems (length {})", result.length());
             
-            log.debug("LaTeX cleaning pipeline completed successfully: {} -> {} characters", 
-                     response.length(), itemsFixed.length());
+            // Validate the result has minimum content
+            if (result.trim().length() < 100) {
+                log.warn("Result too short ({}), using wrapped original content", result.length());
+                result = wrapInBasicDocument(stripMarkdownAndNarration(response));
+            }
             
-            return itemsFixed;
+            log.info("LaTeX cleaning pipeline completed successfully: {} -> {} characters", 
+                     response.length(), result.length());
+            log.info("=== LATEX CLEANING PIPELINE END ===");
+            
+            return result;
             
         } catch (Exception e) {
             log.error("LaTeX cleaning pipeline failed: {}", e.getMessage());
-            // Try to preserve AI content by using basic document wrapping before falling back
+            
+            // Progressive fallback: try to preserve as much AI content as possible
             try {
-                log.warn("Attempting to preserve AI content with basic document wrapping");
-                return wrapInBasicDocument(response.trim());
+                // First try: wrap the stripped content in document structure
+                String stripped = stripMarkdownAndNarration(response);
+                if (stripped.contains("\\section") || stripped.contains("\\resumeItem") || stripped.contains("\\begin{")) {
+                    log.warn("Preserving AI content with document wrapper");
+                    return wrapInBasicDocument(stripped);
+                }
+                
+                // Second try: extract any LaTeX-looking content
+                String latexContent = extractAnyLatexContent(response);
+                if (latexContent != null && latexContent.length() > 100) {
+                    log.warn("Extracted partial LaTeX content");
+                    return ensureDocumentStructure(latexContent);
+                }
+                
             } catch (Exception fallbackError) {
-                log.error("Fallback wrapping also failed, using emergency template");
-                return generateFallbackLatexDocument();
+                log.error("All fallback methods failed: {}", fallbackError.getMessage());
             }
+            
+            log.error("Using emergency fallback template");
+            return generateFallbackLatexDocument();
         }
     }
-
+    
     /**
-     * Step 1: Strip markdown fences and narrative text
+     * Try to extract any LaTeX-looking content from the response
      */
-    private String stripMarkdownAndNarration(String input) {
+    private String extractAnyLatexContent(String input) {
+        // Look for content between \documentclass and \end{document}
+        int docClassIndex = input.indexOf("\\documentclass");
+        int endDocIndex = input.lastIndexOf("\\end{document}");
+        
+        if (docClassIndex != -1 && endDocIndex != -1 && endDocIndex > docClassIndex) {
+            return input.substring(docClassIndex, endDocIndex + "\\end{document}".length());
+        }
+        
+        // Look for content between \begin{document} and \end{document}
+        int beginDocIndex = input.indexOf("\\begin{document}");
+        if (beginDocIndex != -1 && endDocIndex != -1 && endDocIndex > beginDocIndex) {
+            String body = input.substring(beginDocIndex + "\\begin{document}".length(), endDocIndex);
+            return wrapInBasicDocument(body.trim());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Normalize Unicode characters only - don't touch LaTeX commands
+     */
+    private String normalizeUnicodeOnly(String input) {
         return input
-            .replaceAll("```+[a-zA-Z]*\\s*\\n", "")  // Remove ``` or ```latex
-            .replaceAll("\\n```+\\s*$", "")         // Remove trailing ```
-            .replaceAll("(?i)^\\s*Here\\s+is.*$", "") // Remove "Here is..." lines
-            .replaceAll("(?i)^\\s*Here's.*$", "")     // Remove "Here's..." lines  
-            .replaceAll("(?i)^\\s*Below\\s+is.*$", "") // Remove "Below is..." lines
-            .replaceAll("(?i)^\\s*Following\\s+is.*$", "") // Remove "Following is..." lines
-            .replaceAll("(?i)^\\s*The\\s+LaTeX.*$", "") // Remove "The LaTeX..." lines
-            .replaceAll("(?i)^\\s*This\\s+LaTeX.*$", "") // Remove "This LaTeX..." lines
-            .trim();
+            // Normalize Unicode quotation marks and dashes
+            .replace("\u201C", "``")   // left double quotation mark -> LaTeX style
+            .replace("\u201D", "''")   // right double quotation mark -> LaTeX style
+            .replace("\u2018", "`")    // left single quotation mark
+            .replace("\u2019", "'")    // right single quotation mark
+            .replace("\u2013", "--")   // en dash
+            .replace("\u2014", "---")  // em dash
+            .replace("\u2026", "...")  // ellipsis
+            .replace("\u00A0", " ")    // non-breaking space
+            .replace("\u2022", "$\\bullet$"); // bullet point
+    }
+    
+    /**
+     * Ensure the document has proper LaTeX structure
+     */
+    private String ensureDocumentStructure(String input) {
+        boolean hasDocClass = input.contains("\\documentclass");
+        boolean hasBeginDoc = input.contains("\\begin{document}");
+        boolean hasEndDoc = input.contains("\\end{document}");
+        
+        // If it's a complete document, return as-is
+        if (hasDocClass && hasBeginDoc && hasEndDoc) {
+            return input;
+        }
+        
+        // If it has document class but missing begin/end, try to fix
+        if (hasDocClass && !hasBeginDoc) {
+            // Find where packages end and add \begin{document}
+            int lastUsepackage = input.lastIndexOf("\\usepackage");
+            if (lastUsepackage != -1) {
+                int lineEnd = input.indexOf("\n", lastUsepackage);
+                if (lineEnd != -1) {
+                    input = input.substring(0, lineEnd + 1) + "\n\\begin{document}\n" + input.substring(lineEnd + 1);
+                }
+            }
+        }
+        
+        if (!hasEndDoc) {
+            input = input.trim() + "\n\\end{document}";
+        }
+        
+        // If no document structure at all, wrap it
+        if (!input.contains("\\documentclass")) {
+            return wrapInBasicDocument(input);
+        }
+        
+        return input;
     }
 
     /**
-     * Step 2: Extract LaTeX between sentinels with fallback methods
+     * Fix orphan \resumeItem calls that are outside proper list environments.
+     * This handles cases where the AI incorrectly uses \resumeItem without wrapping
+     * it in \resumeItemListStart/\resumeItemListEnd.
+     * 
+     * For skills sections: converts \resumeItem{X} to plain \item{X}
+     * For other sections: wraps consecutive orphan items with \resumeItemListStart/End
+     */
+    private String fixOrphanResumeItems(String input) {
+        if (input == null || !input.contains("\\resumeItem")) {
+            return input;
+        }
+        
+        log.debug("Checking for orphan \\resumeItem calls");
+        
+        String result = input;
+        
+        // First, handle the skills section specially - convert \resumeItem to \item
+        result = fixSkillsSectionItems(result);
+        
+        // Then, wrap any remaining orphan \resumeItem calls with proper list environment
+        result = wrapOrphanResumeItems(result);
+        
+        return result;
+    }
+    
+    /**
+     * In the SKILLS section, \resumeItem should be plain \item instead.
+     * This converts \resumeItem{X} to \item{X} within skills sections.
+     */
+    private String fixSkillsSectionItems(String input) {
+        // Find the skills section boundaries
+        Pattern skillsSectionPattern = Pattern.compile(
+            "(\\\\section\\{(?:SKILLS|Skills|TECHNICAL SKILLS|Technical Skills)[^}]*\\})" +
+            "(.*?)" +
+            "(\\\\section\\{|\\\\end\\{document\\})",
+            Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+        );
+        
+        Matcher matcher = skillsSectionPattern.matcher(input);
+        StringBuffer sb = new StringBuffer();
+        
+        while (matcher.find()) {
+            String sectionHeader = matcher.group(1);
+            String sectionContent = matcher.group(2);
+            String nextSection = matcher.group(3);
+            
+            // Check if skills section has orphan \resumeItem (not inside \resumeItemListStart/End)
+            if (sectionContent.contains("\\resumeItem") && 
+                !sectionContent.contains("\\resumeItemListStart")) {
+                
+                log.info("Found orphan \\resumeItem in skills section, converting to \\item");
+                
+                // Convert \resumeItem{X} to \item{X} in this section
+                String fixedContent = sectionContent.replaceAll(
+                    "\\\\resumeItem\\{",
+                    "\\\\item{"
+                );
+                
+                // Ensure the section has proper itemize environment
+                if (!fixedContent.contains("\\begin{itemize}")) {
+                    // Find where the items start and wrap them
+                    fixedContent = wrapItemsInItemize(fixedContent);
+                }
+                
+                matcher.appendReplacement(sb, 
+                    Matcher.quoteReplacement(sectionHeader + fixedContent + nextSection));
+            } else {
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matcher.group(0)));
+            }
+        }
+        matcher.appendTail(sb);
+        
+        return sb.toString();
+    }
+    
+    /**
+     * Wrap loose \item calls in an itemize environment
+     */
+    private String wrapItemsInItemize(String content) {
+        // Find consecutive \item calls that aren't in an itemize environment
+        Pattern looseItemsPattern = Pattern.compile(
+            "((?:\\s*\\\\item\\{[^}]*\\}\\s*)+)",
+            Pattern.DOTALL
+        );
+        
+        Matcher matcher = looseItemsPattern.matcher(content);
+        StringBuffer sb = new StringBuffer();
+        
+        while (matcher.find()) {
+            String items = matcher.group(1);
+            // Check if already inside an itemize
+            int pos = matcher.start();
+            String before = content.substring(0, pos);
+            int lastBeginItemize = before.lastIndexOf("\\begin{itemize}");
+            int lastEndItemize = before.lastIndexOf("\\end{itemize}");
+            
+            // If not inside itemize, wrap it
+            if (lastBeginItemize <= lastEndItemize) {
+                String wrapped = "\n\\begin{itemize}[leftmargin=0.15in, label={}]\n\\small\n" + 
+                                items.trim() + 
+                                "\n\\end{itemize}\n";
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(wrapped));
+                log.debug("Wrapped loose items in itemize environment");
+            } else {
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(items));
+            }
+        }
+        matcher.appendTail(sb);
+        
+        return sb.toString();
+    }
+    
+    /**
+     * Wrap orphan \resumeItem calls (outside skills section) with \resumeItemListStart/End
+     */
+    private String wrapOrphanResumeItems(String input) {
+        // Find \resumeItem calls that are not inside \resumeItemListStart/End
+        String[] lines = input.split("\n");
+        StringBuilder result = new StringBuilder();
+        
+        boolean inItemList = false;
+        boolean needsListStart = false;
+        int orphanItemCount = 0;
+        StringBuilder orphanItems = new StringBuilder();
+        
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            String trimmedLine = line.trim();
+            
+            // Track list environment state
+            if (trimmedLine.contains("\\resumeItemListStart")) {
+                inItemList = true;
+                // If we have pending orphan items, flush them first
+                if (orphanItemCount > 0) {
+                    result.append("\\resumeItemListStart\n");
+                    result.append(orphanItems);
+                    result.append("\\resumeItemListEnd\n");
+                    orphanItems = new StringBuilder();
+                    orphanItemCount = 0;
+                }
+                result.append(line).append("\n");
+                continue;
+            }
+            
+            if (trimmedLine.contains("\\resumeItemListEnd")) {
+                inItemList = false;
+                result.append(line).append("\n");
+                continue;
+            }
+            
+            // Check for orphan \resumeItem
+            if (trimmedLine.startsWith("\\resumeItem{") && !inItemList) {
+                orphanItems.append(line).append("\n");
+                orphanItemCount++;
+                log.debug("Found orphan \\resumeItem at line {}", i + 1);
+                continue;
+            }
+            
+            // If we have orphan items and hit a non-resumeItem line, flush them
+            if (orphanItemCount > 0 && !trimmedLine.startsWith("\\resumeItem{")) {
+                log.info("Wrapping {} orphan \\resumeItem calls with list environment", orphanItemCount);
+                result.append("\\resumeItemListStart\n");
+                result.append(orphanItems);
+                result.append("\\resumeItemListEnd\n");
+                orphanItems = new StringBuilder();
+                orphanItemCount = 0;
+            }
+            
+            result.append(line).append("\n");
+        }
+        
+        // Handle any remaining orphan items at the end
+        if (orphanItemCount > 0) {
+            log.info("Wrapping {} remaining orphan \\resumeItem calls", orphanItemCount);
+            // Insert before \end{document}
+            String resultStr = result.toString();
+            int endDocPos = resultStr.lastIndexOf("\\end{document}");
+            if (endDocPos > 0) {
+                return resultStr.substring(0, endDocPos) +
+                       "\\resumeItemListStart\n" +
+                       orphanItems +
+                       "\\resumeItemListEnd\n" +
+                       resultStr.substring(endDocPos);
+            } else {
+                result.append("\\resumeItemListStart\n");
+                result.append(orphanItems);
+                result.append("\\resumeItemListEnd\n");
+            }
+        }
+        
+        return result.toString();
+    }
+
+    /**
+     * Strip markdown fences and narrative text from AI response
+     */
+    private String stripMarkdownAndNarration(String input) {
+        String result = input;
+        
+        // Remove markdown code fences (```latex, ```, etc.)
+        result = result.replaceAll("```+\\s*latex\\s*\\n", "");
+        result = result.replaceAll("```+\\s*tex\\s*\\n", "");
+        result = result.replaceAll("```+\\s*\\n", "");
+        result = result.replaceAll("\\n```+\\s*$", "");
+        result = result.replaceAll("^```+\\s*", "");
+        
+        // Remove common AI narration lines (multiline mode)
+        String[] narrativePatterns = {
+            "(?m)^\\s*Here\\s+is\\s+the\\s+LaTeX.*$",
+            "(?m)^\\s*Here's\\s+the\\s+LaTeX.*$",
+            "(?m)^\\s*Below\\s+is\\s+the\\s+LaTeX.*$",
+            "(?m)^\\s*The\\s+following\\s+is.*$",
+            "(?m)^\\s*I've\\s+created.*$",
+            "(?m)^\\s*This\\s+LaTeX\\s+code.*$"
+        };
+        
+        for (String pattern : narrativePatterns) {
+            result = result.replaceAll(pattern, "");
+        }
+        
+        return result.trim();
+    }
+
+    /**
+     * Extract LaTeX between sentinels with multiple fallback methods
      */
     private String extractLatexWithSentinels(String input) {
+        // Method 1: Look for our custom sentinels
         final String START_SENTINEL = "%__BEGIN_LATEX__";
         final String END_SENTINEL = "%__END_LATEX__";
         
@@ -471,303 +902,73 @@ public class GroqClient {
         int endIndex = input.indexOf(END_SENTINEL);
         
         if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
-            // Perfect case: sentinels found
             String extracted = input.substring(startIndex + START_SENTINEL.length(), endIndex).trim();
-            log.debug("Successfully extracted LaTeX using sentinels");
+            log.info("Extracted LaTeX using sentinels (length: {})", extracted.length());
             return extracted;
         }
         
-        log.warn("Sentinels not found, falling back to document class detection");
-        log.debug("Input content preview: {}", input.substring(0, Math.min(200, input.length())));
-        
-        // Fallback: look for \documentclass to \end{document}
+        // Method 2: Look for complete document structure
         int docClassStart = input.indexOf("\\documentclass");
         int docEndIndex = input.lastIndexOf("\\end{document}");
         
         if (docClassStart != -1 && docEndIndex != -1 && docEndIndex > docClassStart) {
             String extracted = input.substring(docClassStart, docEndIndex + "\\end{document}".length()).trim();
-            log.debug("Extracted LaTeX using documentclass fallback");
+            log.info("Extracted LaTeX using documentclass markers (length: {})", extracted.length());
             return extracted;
         }
         
-        // Last resort: assume the entire cleaned input is LaTeX body and wrap it
-        log.warn("No document structure found, wrapping content in basic document");
-        return wrapInBasicDocument(input.trim());
-    }
-
-    /**
-     * Step 3: Normalize Unicode and escape special LaTeX characters
-     */
-    private String normalizeUnicodeAndEscapeSpecialChars(String input) {
-        String normalized = input
-            // Normalize Unicode quotation marks and dashes
-            .replace("\u201C", "\"")  // left double quotation mark
-            .replace("\u201D", "\"")  // right double quotation mark
-            .replace("\u2018", "'")   // left single quotation mark  
-            .replace("\u2019", "'")   // right single quotation mark
-            .replace("\u2013", "--")  // en dash
-            .replace("\u2014", "---") // em dash
-            .replace("\u2026", "...")  // ellipsis
-            
-            // Escape special LaTeX characters (but be careful with existing commands)
-            // Only escape & that are not part of LaTeX table structures
-            .replaceAll("&(?![a-zA-Z#])", "\\\\&")  // Escape & but not &amp; or &#
-            
-            // Escape $ only when not part of math mode
-            .replaceAll("\\$(?![0-9])", "\\\\$")   // Escape standalone $ but not $1, $2, etc.
-            
-            // Escape % that are not LaTeX comments
-            .replaceAll("(?<!\\\\)%(?![_\\s])", "\\\\%")  // Escape % but not \% or %__
-            
-            // Escape _ and { } more conservatively
-            .replaceAll("(?<!\\\\)_(?![_\\s])", "\\\\_")   // Escape standalone _
-            .replaceAll("(?<!\\\\)\\{(?![a-zA-Z])", "\\\\{") // Escape { not followed by commands
-            .replaceAll("(?<!\\\\)\\}(?!\\s*[,.])", "\\\\}"); // Escape } not followed by punctuation
-
-        log.debug("Applied Unicode normalization and special character escaping");
-        return normalized;
-    }
-
-    /**
-     * Step 4: Wrap orphaned \item commands in proper list environments
-     */
-    private String wrapLonelyItems(String input) {
-        // Look for \item that are not already inside itemize/enumerate
-        String[] lines = input.split("\n");
-        StringBuilder result = new StringBuilder();
-        boolean inList = false;
+        // Method 3: Look for \begin{document} ... \end{document}
+        int beginDocStart = input.indexOf("\\begin{document}");
+        if (beginDocStart != -1 && docEndIndex != -1 && docEndIndex > beginDocStart) {
+            // Extract body and wrap with template
+            String body = input.substring(beginDocStart + "\\begin{document}".length(), docEndIndex).trim();
+            log.info("Extracted document body, wrapping with template (length: {})", body.length());
+            return wrapInBasicDocument(body);
+        }
         
-        for (String line : lines) {
-            String trimmed = line.trim();
-            
-            // Check if we're entering or leaving a list environment
-            if (trimmed.matches("\\s*\\\\begin\\{(itemize|enumerate).*\\}.*")) {
-                inList = true;
-            } else if (trimmed.matches("\\s*\\\\end\\{(itemize|enumerate)\\}.*")) {
-                inList = false;
-            }
-            
-            // If we find a lonely \item, wrap it
-            if (trimmed.startsWith("\\item") && !inList) {
-                if (result.length() > 0 && !result.toString().trim().endsWith("\\begin{itemize}")) {
-                    result.append("\\begin{itemize}[leftmargin=*]\n");
-                }
-                result.append(line).append("\n");
-                // Don't set inList = true here, we'll close it when we find non-item content
-            } else if (inList && !trimmed.startsWith("\\item") && !trimmed.startsWith("\\end{itemize}") 
-                      && !trimmed.isEmpty() && !trimmed.startsWith("%")) {
-                // Close the itemize if we hit non-item content
-                result.append("\\end{itemize}\n");
-                result.append(line).append("\n");
-                inList = false;
-            } else {
-                result.append(line).append("\n");
+        // Method 4: If it contains LaTeX commands, wrap it
+        if (containsLatexCommands(input)) {
+            log.info("Input contains LaTeX commands, wrapping with document structure");
+            return wrapInBasicDocument(input.trim());
+        }
+        
+        // Method 5: Return as-is and let ensureDocumentStructure handle it
+        log.warn("No clear LaTeX structure found, returning stripped input");
+        return input.trim();
+    }
+    
+    /**
+     * Check if the input contains recognizable LaTeX commands
+     */
+    private boolean containsLatexCommands(String input) {
+        String[] latexIndicators = {
+            "\\section", "\\subsection", "\\resumeItem", "\\resumeSubheading",
+            "\\begin{", "\\end{", "\\textbf{", "\\textit{", "\\item",
+            "\\href{", "\\small", "\\large", "\\centering"
+        };
+        
+        for (String indicator : latexIndicators) {
+            if (input.contains(indicator)) {
+                return true;
             }
         }
-        
-        // Close any remaining open itemize
-        if (inList || result.toString().contains("\\begin{itemize}") && !result.toString().contains("\\end{itemize}")) {
-            result.append("\\end{itemize}\n");
-        }
-        
-        log.debug("Fixed lonely items in LaTeX content");
-        return result.toString();
-    }
-
-    /**
-     * Step 5: Validate final document structure
-     */
-    private void validateDocumentStructure(String latex) {
-        boolean hasDocClass = latex.contains("\\documentclass");
-        boolean hasBeginDoc = latex.contains("\\begin{document}");
-        boolean hasEndDoc = latex.contains("\\end{document}");
-        
-        if (hasDocClass && (!hasBeginDoc || !hasEndDoc)) {
-            throw new RuntimeException("Document has \\documentclass but missing \\begin{document} or \\end{document}");
-        }
-        
-        if (!hasDocClass) {
-            throw new RuntimeException("Document missing \\documentclass declaration");
-        }
-        
-        // Check for basic structure issues
-        if (latex.trim().length() < 50) {
-            throw new RuntimeException("Document too short to be valid LaTeX");
-        }
-        
-        log.debug("Document structure validation passed");
+        return false;
     }
 
     /**
      * Wrap content in Jake's LaTeX template when no structure is found
+     * Uses centralized LatexTemplateService
      */
     private String wrapInBasicDocument(String bodyContent) {
-        return getStaticLatexTemplate().replace("%__BODY__", bodyContent);
-    }
-    
-    /**
-     * Static LaTeX template with all Jake's macro definitions
-     * This ensures consistency with ExportServiceImpl and prevents undefined macros
-     */
-    private String getStaticLatexTemplate() {
-        return """
-            \\documentclass[letterpaper,11pt]{article}
-            
-            %% Core packages for professional resume (ATS-friendly)
-            \\usepackage{latexsym}
-            \\usepackage[empty]{fullpage}
-            \\usepackage{titlesec}
-            \\usepackage{marvosym}
-            \\usepackage[usenames,dvipsnames]{color}
-            \\usepackage{enumitem}
-            \\usepackage[hidelinks]{hyperref}
-            \\usepackage{fancyhdr}
-            \\usepackage[english]{babel}
-            \\usepackage{tabularx}
-            \\usepackage[utf8]{inputenc}
-            \\usepackage[T1]{fontenc}
-            \\usepackage{lmodern}
-            \\input{glyphtounicode}
-            
-            %% Page formatting and margins
-            \\pagestyle{fancy}
-            \\fancyhf{}
-            \\fancyfoot{}
-            \\renewcommand{\\headrulewidth}{0pt}
-            \\renewcommand{\\footrulewidth}{0pt}
-            \\setlength{\\headheight}{14pt}  % Fix fancyhdr warning
-            \\addtolength{\\oddsidemargin}{-0.5in}
-            \\addtolength{\\evensidemargin}{-0.5in}
-            \\addtolength{\\textwidth}{1in}
-            \\addtolength{\\topmargin}{-.5in}
-            \\addtolength{\\textheight}{1.0in}
-            \\urlstyle{same}
-            \\raggedbottom
-            \\raggedright
-            \\setlength{\\tabcolsep}{0in}
-            \\setlength{\\parindent}{0pt}
-            
-            %% Section title formatting
-            \\titleformat{\\section}{
-              \\vspace{-4pt}\\scshape\\raggedright\\large
-            }{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]
-            
-            %% PDF settings for ATS compatibility
-            \\pdfgentounicode=1
-            
-            %% ========== JAKE'S RESUME TEMPLATE MACROS ==========
-            %% These macros define the structure and formatting for resume elements
-            
-            %% Basic item with proper spacing
-            \\newcommand{\\resumeItem}[1]{
-              \\item\\small{
-                {#1 \\vspace{-2pt}}
-              }
-            }
-            
-            %% Four-argument subheading for positions/education
-            \\newcommand{\\resumeSubheading}[4]{
-              \\vspace{-2pt}\\item
-                \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
-                  \\textbf{#1} & #2 \\\\
-                  \\textit{\\small#3} & \\textit{\\small #4} \\\\
-                \\end{tabular*}\\vspace{-7pt}
-            }
-            
-            %% Education-specific subheading with proper formatting
-            \\newcommand{\\resumeSubheadingEducation}[4]{
-              \\vspace{-2pt}\\item
-                \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
-                  \\textbf{#1} & #2 \\\\
-                  \\textit{\\small#3} & \\textit{\\small #4} \\\\
-                \\end{tabular*}\\vspace{-7pt}
-            }
-            
-            %% Two-argument project heading
-            \\newcommand{\\resumeProjectHeading}[2]{
-              \\item
-                \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
-                  \\small#1 & #2 \\\\
-                \\end{tabular*}\\vspace{-7pt}
-            }
-            
-            %% Alternative subheading styles for flexibility
-            \\newcommand{\\resumeSubSubheading}[2]{
-              \\item
-                \\begin{tabular*}{0.97\\textwidth}{l@{\\extracolsep{\\fill}}r}
-                  \\textit{\\small#1} & \\textit{\\small #2} \\\\
-                \\end{tabular*}\\vspace{-7pt}
-            }
-            
-            %% List environment commands
-            \\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
-            \\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
-            \\newcommand{\\resumeItemListStart}{\\begin{itemize}}
-            \\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
-            
-            %% Custom bullet for nested lists
-            \\renewcommand\\labelitemii{$\\vcenter{\\hbox{\\tiny$\\bullet$}}$}
-            
-            %% Skills section helper
-            \\newcommand{\\resumeSkillItem}[2]{
-              \\item{\\textbf{#1:} #2}
-            }
-            
-            %% Additional macros for common resume elements
-            \\newcommand{\\resumeAward}[2]{
-              \\item \\textbf{#1} \\hfill #2
-            }
-            
-            \\newcommand{\\resumeCertification}[2]{
-              \\item #1 \\hfill \\textit{#2}
-            }
-            
-            %% Legacy macro for compatibility
-            \\newcommand{\\resumeSubItem}[1]{\\resumeItem{#1}\\vspace{-4pt}}
-            
-            %% Safe text escaping helpers (backup macros)
-            \\newcommand{\\safeampersand}{\\&}
-            \\newcommand{\\safedollar}{\\$}
-            \\newcommand{\\safepercent}{\\%}
-            \\newcommand{\\safeunderscore}{\\_}
-            
-            %% ========== DOCUMENT CONTENT ==========
-            \\begin{document}
-            
-            %__BODY__
-            
-            \\end{document}
-            """;
+        return latexTemplateService.wrapInTemplate(bodyContent);
     }
 
     /**
      * Generate a fallback LaTeX document when all extraction fails
+     * Uses centralized LatexTemplateService
      */
     private String generateFallbackLatexDocument() {
-        String fallbackBody = """
-            %% HEADER SECTION
-            \\begin{center}
-                {\\textbf{\\Huge \\scshape Professional Resume}} \\\\ \\vspace{1pt}
-                \\small Processing Error Fallback Document
-            \\end{center}
-            
-            \\section{NOTICE}
-            \\begin{itemize}[leftmargin=0.15in, label={}]
-                \\item \\textbf{Status:} This is a fallback document generated due to LaTeX processing errors.
-                \\item \\textbf{Action Required:} Please regenerate your resume to get the proper content.
-                \\item \\textbf{Support:} If this issue persists, contact technical support.
-            \\end{itemize}
-            
-            \\section{TROUBLESHOOTING}
-            \\begin{itemize}[leftmargin=0.15in, label={}]
-                \\item Check that your resume content doesn't contain special characters
-                \\item Verify that all required fields are filled out
-                \\item Try regenerating with different preferences
-                \\item Contact support if the problem continues
-            \\end{itemize}
-            """;
-            
-        return getStaticLatexTemplate().replace("%__BODY__", fallbackBody);
+        return latexTemplateService.generateFallbackDocument();
     }
 
     /**
@@ -800,10 +1001,24 @@ public class GroqClient {
     }
 
     private boolean isApiKeyConfigured() {
-        return groqApiKey != null && 
+        boolean configured = groqApiKey != null && 
                !groqApiKey.trim().isEmpty() && 
                !groqApiKey.equals("your-groq-api-key") &&
                !groqApiKey.startsWith("${");
+        
+        log.info("=== GROQ API KEY CHECK ===");
+        log.info("API Key null: {}", groqApiKey == null);
+        log.info("API Key empty: {}", groqApiKey != null && groqApiKey.trim().isEmpty());
+        log.info("API Key is placeholder: {}", groqApiKey != null && groqApiKey.equals("your-groq-api-key"));
+        log.info("API Key starts with ${}: {}", groqApiKey != null && groqApiKey.startsWith("${"));
+        log.info("API Key configured: {}", configured);
+        if (groqApiKey != null) {
+            log.info("API Key length: {}", groqApiKey.length());
+            log.info("API Key prefix: {}", groqApiKey.substring(0, Math.min(10, groqApiKey.length())));
+        }
+        log.info("=== END API KEY CHECK ===");
+        
+        return configured;
     }
 
     private Map<String, Object> buildRequestBody(GroqRequest request) {
